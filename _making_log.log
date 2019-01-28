@@ -1,0 +1,8 @@
+Log:
+
+	14/12/2018 - Parser logic error: onec we notice an R_PAREN ahead, we need to skip over it as to
+			not let the parse re-read it and interpret is an another R_PAREN.
+			This was causing the parser to read "(f (g 4) 3)" as "(f (g 4)) 3" becasue
+			the first R_PAREN closed both.
+	04/01/2019 - Scoping partially impl. and functions now have own scopes and are bound to scopes
+			through symbol tables, bound to the AST nodes object ID.
