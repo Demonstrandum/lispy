@@ -1,4 +1,7 @@
 class Tree(list):
+    def __init__(self, file):
+        self.file = file
+        list.__init__(self)
     def push(self, *arg):
         return self.append(*arg)
     def __str__(self):

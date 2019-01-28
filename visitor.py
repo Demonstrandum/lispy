@@ -9,28 +9,6 @@ import pickle
 
 DEBUG = True
 
-PROGRAM = None
-with open('sample.txt', 'r') as f:
-    PROGRAM = f.read()
-
-if DEBUG:
-    print('--- GIVEN PROGRAM ---\n' + PROGRAM + '\n-------- END --------')
-
-stream = lexing.lex(PROGRAM)
-if DEBUG:
-    print("\n\nToken Stream:\n")
-    print(stream)
-
-AST = parsing.parse(stream)
-if DEBUG:
-    print("\n\nAbstract Syntax Tree:\n")
-    print(AST)
-    with open('serialised-ast.txt', 'w', encoding='utf-8') as f:
-        f.write('VISUALISED_ABSTRACT_SYNTAX_TREE\n')
-        f.write(str(AST))
-        f.write('\nSERIALISED_PICKLE_AST\n')
-        f.write(str(pickle.dumps(AST)))
-
 
 class Variable(object):
     def __init__(self, name, value):
@@ -231,18 +209,38 @@ def execute_method(node):
     return result
 
     
-
+# All evaluation starts here:
 def visit(AST, pc=0):
-    evaluate(AST[pc])
-    
-    if pc + 1 >= len(AST):
+    if pc >= len(AST):
         return None
+    
+    evaluate(AST[pc])
     return visit(AST, pc + 1)
 
-
 if __name__ == '__main__':
+    FILENAME = 'testing.lispy'
+    PROGRAM = None
+    with open(FILENAME, 'r') as f:
+        PROGRAM = f.read()
+
+    if DEBUG:
+        print('--- GIVEN PROGRAM ---\n' + PROGRAM + '\n-------- END --------')
+
+    stream = lexing.lex(PROGRAM)
+    if DEBUG:
+        print("\n\nToken Stream:\n")
+        print(stream)
+        print(stream.tokens)
+
+    AST = parsing.parse(stream)
+    if DEBUG:
+        print("\n\nAbstract Syntax Tree:\n")
+        print(AST)
+        with open('serialised-ast.txt', 'w', encoding='utf-8') as f:
+            f.write('VISUALISED_ABSTRACT_SYNTAX_TREE\n')
+            f.write(str(AST))
+            f.write('\nSERIALISED_PICKLE_AST\n')
+            f.write(str(pickle.dumps(AST)))
     visit(AST)
 
 
-if DEBUG: print('\n\n[!!] -- Set `DEBUG\' to `False\' in "visitor.py" to stop seeing this information.')
-input('\n\nPress Enter to continue...')

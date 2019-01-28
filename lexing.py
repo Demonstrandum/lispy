@@ -17,7 +17,7 @@ NUMERIC    = exp(r"[0-9]+(\.[0-9]+)?([xob][0-9]+)?(e[\+\-]?)?[0-9a-fA-f]*")
 TERMINATOR = exp(r"\n")
 
 class Token(object):
-    def __init__(self, token_type, string, loc):
+    def __init__(self, token_type, string, loc={'line':'IMPLICIT','column':'IMPLICIT'}):
         self.type = token_type
         self.string = string
         self.location = loc
@@ -29,15 +29,17 @@ class Token(object):
             self.string
         )
 
+EOF_TOKEN = Token('EOF', EOF)
 
 class TokenStream(object):
-    def __init__(self, tokens = None):
+    def __init__(self, file, tokens = None):
+        self.file = file
         self.tokens = tokens or []
         self.i = 0
 
     def current(self):
         if self.i >= self.size():
-            return '\0'
+            return EOF_TOKEN
         return self.tokens[self.i]
 
     def size(self):
@@ -58,12 +60,12 @@ class TokenStream(object):
     def next(self, j = 1):
         self.i += j
         if self.i >= self.size():
-            return '\0'
+            return EOF_TOKEN
         return self.tokens[self.i]
 
     def ahead(self, j = 1):
         if self.i + j >= self.size():
-            return '\0'
+            return EOF_TOKEN
         return self.tokens[self.i + j]
 
     def back(self, j = 1):
@@ -84,9 +86,9 @@ class TokenStream(object):
             )
         return '\n'.join(map(form, self.tokens))
 
-def lex(string):
+def lex(string, file):
     string += EOF
-    stream = TokenStream()
+    stream = TokenStream(file)
     i = 0
     line = 1
     column = 1
@@ -95,6 +97,14 @@ def lex(string):
     while i < len(string):
         partial = string[i::]
 
+        # Add EOF token at End Of File:
+        if partial[0] == EOF:
+            stream.add(Token('EOF', partial[0], {
+                'line': line,
+                'column': column
+            }))
+            break
+        
         # Ignore comments, we dont need them in our token stream.
         if partial[0] == ';':
             j = 0
