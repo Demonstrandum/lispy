@@ -2,13 +2,17 @@ import lexing
 import tree
 import parsing
 
+import err
+import config as conf
+
 from functools import reduce
 from copy import deepcopy as clone
 
+import sys
 import pickle
 
-DEBUG = True
-
+EX = None
+CURRENT_LOCATION = None
 
 class Variable(object):
     def __init__(self, name, value):
@@ -34,16 +38,16 @@ class SymbolTable(object):
         self.args = []
         self.type = __class__
         self.frozen = False
-        
+
     def push(self, symbol, value):
+        global EX
         if symbol in self.local.keys():
-            raise Exception(
-                'Symbol bindings are immutable, symbol: `%s' % symbol
-                + "' cannot be mutated."
-            )
+            s = 'Symbol bindings are immutable, symbol: `%s' % symbol
+            + "' cannot be mutated."
+            EX.throw(CURRENT_LOCATION, s)
         self.local[symbol] = value
     bind = push
-    
+
     def declare(self, symbol):
         self.local[symbol] = None
 
@@ -51,8 +55,11 @@ class SymbolTable(object):
         self.args = args
 
     def give_args(self, args):
+        global EX
         if len(self.args) != len(args):
-            raise Exception('Not enough arguments supplied to call.')
+            s = 'Wrong number of arguments to `{}\',\nexpected: {}, got {}.'.format(
+                self.name, len(self.args), len(args))
+            EX.throw(CURRENT_LOCATION, s)
         for i in range(len(args)):
             self.local[self.args[i]] = args[i]
 
@@ -61,16 +68,16 @@ class SymbolTable(object):
 
     def freeze(self):
         self.frozen = True
-        
+
     def __str__(self):
-        return '<TABLE`{}` scope:{}{}>'.format(
+        return '<TABLE`{}`:{}{}>'.format(
             self.name,
             hex(self.scope),
-            ['', ' [frozen]'][self.frozen]
-        )
+            ['', ' [frozen]'][self.frozen])
 
 TABLES = [SymbolTable(0, 'main')]
-OLD_TABLES = []
+FROZEN_TABLES = []
+CALL_STACK = []
 
 def lookup_table(scope):
     global TABLES
@@ -86,34 +93,44 @@ def current_tables(current_scopes):
 def search_tables(current, ident):
     global TABLES
     subtree = None
-    tables = OLD_TABLES + current_tables(current)
-    if DEBUG: print("Current parent tables searching:", list(map(str, tables)))
+    tables = FROZEN_TABLES + current_tables(current) + CALL_STACK
+    if conf.DEBUG:
+        print("\n\nSearching current scopes for symbol: ", ident)
+        print("Current parent tables searching:", list(map(str, tables)))
     for table in tables[::-1]:  # Search backwards, from children towards parents
-        if DEBUG: print("Looking at:", table)
-        if DEBUG: print("With bound symbols:", list(table.local.keys()))
+        if conf.DEBUG: print("Looking at:", table)
+        if conf.DEBUG: print("With bound symbols:", list(table.local.keys()))
         if ident in list(table.local.keys()):
-            if DEBUG: print("Matched symbol in table.\n" + str(table.local[ident]))
+            if conf.DEBUG: print("Matched symbol in table.\n" + str(table.local[ident]))
             subtree = table.local[ident]
             break
     if subtree is None:
-        raise Exception(
-            'Unbound symbol: `%s\'. ' % ident
-            + 'Check if symbol is in scope, or has been defined')
+        s = ('Unbound symbol: `{}\', in scope: {}.\n'
+            + 'Check if symbol is in scope, or has been defined').format(
+            ident, current_tables(current)[-1]
+        )
+        EX.throw(CURRENT_LOCATION, s)
+    if conf.DEBUG: print("[!!] - Finished symbol search.\n\n")
     return subtree
 
 search_symbol = search_tables
-    
+
 
 CURRENT_SCOPES = [0x0]  # Default scope is main scope.
 
 def evaluate(node):
-    global TABLES
-    if DEBUG:
+    global TABLES, CURRENT_SCOPES, FROZEN_TABLES, CALL_STACK
+    global EX, CURRENT_LOCATION
+    CURRENT_LOCATION = node.location
+    if conf.DEBUG:
         print("Current scope: {}, i.e. '{}'".format(
             hex(CURRENT_SCOPES[-1]),
-            lookup_table(CURRENT_SCOPES[-1]).name
-        ))
-        print("Frozen Tables: [{}]".format(', '.join(map(str, OLD_TABLES))))
+            lookup_table(CURRENT_SCOPES[-1]).name))
+
+        print("Frozen Tables: [{}]".format(', '.join(map(str, FROZEN_TABLES))))
+
+    if node.type is tree.Nil:
+        return None
     if node.type is tree.Numeric:
         return node.value
     if node.type is tree.Symbol:
@@ -121,7 +138,23 @@ def evaluate(node):
     if node.type is tree.Call:
         if node.value.type is tree.Symbol:
             method = node.value.value
-            
+
+            if method == 'if':
+                if evaluate(node.operands[0]):
+                    return evaluate(node.operands[1])
+                else:
+                    if len(node.operands) > 2:
+                        return evaluate(node.operands[2])
+                return None
+
+            if method == 'unless':
+                if not evaluate(node.operands[0]):
+                    return evaluate(node.operands[1])
+                else:
+                    if len(node.operands) > 2:
+                        return evaluate(node.operands[2])
+                return None
+
             if method == '+':
                 result = sum(map(evaluate, node.operands))
                 return result
@@ -131,28 +164,69 @@ def evaluate(node):
                 return result
 
             if method == '*':
-                result = reduce((lambda a, b: a * b), map(evaluate, node.operands))
+                result = reduce(lambda a, b: a * b, map(evaluate, node.operands))
                 return result
 
             if method == '/':
-                result = reduce((lambda a, b: a / b), map(evaluate, node.operands))
+                result = reduce(lambda a, b: a / b, map(evaluate, node.operands))
                 return result
-            
+
+            if method == '=':
+                result = reduce(lambda a, b: a == b, map(evaluate, node.operands))
+                return result
+
+            if method == '<':
+                min = evaluate(node.operands[0])
+                for op in node.operands[1:]:
+                    if evaluate(op) >= min:
+                        return False
+                return True
+
+            if method == '>':
+                max = evaluate(node.operands[0])
+                for op in node.operands[1:]:
+                    if evaluate(op) <= maz:
+                        return False
+                return True
+
+            if method == '<=':
+                min = evaluate(node.operands[0])
+                for op in node.operands[1:]:
+                    if evaluate(op) > min:
+                        return False
+                return True
+
+            if method == '>=':
+                min = evaluate(node.operands[0])
+                for op in node.operands[1:]:
+                    if evaluate(op) < min:
+                        return False
+                return True
+
             if method == 'out':
                 result = ' '.join(map(str, map(evaluate, node.operands)))
-                if DEBUG:
+                if conf.DEBUG:
+                    print('[out] --- <STDOUT>: `' + result + "'")
+                else:
+                    sys.stdout.write(result)
+                return result
+
+            if method == 'puts':
+                result = '\n'.join(map(str, map(evaluate, node.operands)))
+                if conf.DEBUG:
                     print('[out] --- <STDOUT>: `' + result + "'")
                 else:
                     print(result)
                 return result
+
             if method == 'let':
                 immediate_scope = CURRENT_SCOPES[-1]
                 immediate_table = lookup_table(immediate_scope)
                 for op in node.operands:
-                    if DEBUG: print("Let is defining: ", op.value.value)
+                    if conf.DEBUG: print("Let is defining: ", op.value.value)
                     immediate_table.bind(op.value.value, evaluate(op.operands[0]))
-                if DEBUG: print('After let, defined variables in current scope, are: ', lookup_table(CURRENT_SCOPES[-1]).local)
-                
+                if conf.DEBUG: print('After let, defined variables in current scope, are: ', lookup_table(CURRENT_SCOPES[-1]).local)
+
                 return
             if method == 'lambda':
                 table = SymbolTable(id(node), '_lambda')
@@ -162,85 +236,64 @@ def evaluate(node):
                 frozen = clone(current_tables(CURRENT_SCOPES + [id(node)]))
                 [t.freeze() for t in frozen]
                 return Definition(node.operands[1], table, args, frozen)
-            
+
             if method == 'define':
                 name = node.operands[0].value.value  # Method name
-                if DEBUG: print("At time of definition of: '{}', scopes are: {}".format(name, list(map(str, current_tables(CURRENT_SCOPES)))))
+                if conf.DEBUG: print("At time of definition of: '{}', scopes are: {}".format(name, list(map(str, current_tables(CURRENT_SCOPES)))))
                 table = SymbolTable(id(node), name)
                 TABLES.append(table)
                 ops = list(map(lambda e: e.value, node.operands[0].operands))
                 TABLES[-1].declare_args(ops)
-                
+
                 frozen = clone(current_tables(CURRENT_SCOPES + [id(node)]))
                 definition = Definition(node.operands[1], table, ops, frozen)
-                
+
                 immediate_scope = CURRENT_SCOPES[-1]
                 lookup_table(immediate_scope).bind(name, definition)
-                
+
                 return definition
 
             if method:
                 result = execute_method(node)
                 return result
-            
-            raise Exception('Unknown variable or method name `%s\'.' % method)
+
+            raise Exception('Unknown variable or method name, this is a bug `%s\'.' % method)
         else:  # Not a symbol being called...
             result = execute_method(node)
             return result
-            
-            
-            
-    raise Exception("Don't know what to do with %s" % str(node))
-            
 
-def execute_method(node):    
+
+
+    raise Exception("Don't know what to do with %s, this is a bug" % str(node))
+
+
+def execute_method(node):
     definition = evaluate(node.value)
 
     args = list(map(lambda e: evaluate(e), node.operands))
-    definition.table.give_args(args)   #ARGS NEED TO BE PICKED BEFORE SUPERSCOPE VARS
+    definition.table.give_args(args)
     for i in range(len(definition.frozen)):
-        OLD_TABLES.append(definition.frozen[i])
+        FROZEN_TABLES.append(definition.frozen[i])
     CURRENT_SCOPES.append(definition.table.scope)
+    CALL_STACK.append(clone(definition.table))
 
     result = definition.call()
     CURRENT_SCOPES.pop()
-    [OLD_TABLES.pop() for _ in range(len(definition.frozen))]
+    [FROZEN_TABLES.pop() for _ in range(len(definition.frozen))]
+    CALL_STACK.pop()
     definition.table.clean()
     return result
 
-    
+
 # All evaluation starts here:
 def visit(AST, pc=0):
     if pc >= len(AST):
-        return None
-    
+        return 0
+
     evaluate(AST[pc])
     return visit(AST, pc + 1)
 
-if __name__ == '__main__':
-    FILENAME = 'testing.lispy'
-    PROGRAM = None
-    with open(FILENAME, 'r') as f:
-        PROGRAM = f.read()
-
-    if DEBUG:
-        print('--- GIVEN PROGRAM ---\n' + PROGRAM + '\n-------- END --------')
-
-    stream = lexing.lex(PROGRAM)
-    if DEBUG:
-        print("\n\nToken Stream:\n")
-        print(stream)
-        print(stream.tokens)
-
-    AST = parsing.parse(stream)
-    if DEBUG:
-        print("\n\nAbstract Syntax Tree:\n")
-        print(AST)
-        with open('serialised-ast.txt', 'w', encoding='utf-8') as f:
-            f.write('VISUALISED_ABSTRACT_SYNTAX_TREE\n')
-            f.write(str(AST))
-            f.write('\nSERIALISED_PICKLE_AST\n')
-            f.write(str(pickle.dumps(AST)))
-    visit(AST)
-
-
+def walk(AST):
+    global EX
+    EX = err.Thrower(err.EXEC, AST.file)
+    return visit(AST)

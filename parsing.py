@@ -1,8 +1,9 @@
 import lexing
 import tree
-import err
 
-DEBUG = True
+import err
+import config as conf
+
 EOF = '\0'
 
 EX = None
@@ -18,9 +19,11 @@ def parse(stream, AST=None):
         EX = err.Thrower(err.PARSE, stream.file)
     if AST is None:
         AST = tree.Tree(stream.file)
-    if DEBUG: print("TOP LEVEL PARSE: ", stream.current())
+        stream.purge('TERMINATOR')
+    if conf.DEBUG: print("TOP LEVEL PARSE: ", stream.current())
     branch = atom(stream.current(), stream)
-    if branch is not None:
+    if branch.type is not tree.Nil:
+        if conf.DEBUG: print('Adding branch: ', branch.type)
         AST.push(branch)
     if stream.ahead().type == 'EOF':
         return AST
@@ -29,6 +32,9 @@ def parse(stream, AST=None):
     return parse(stream, AST)
 
 def atom(token, stream):
+    if conf.DEBUG: print('Atomic token type: ', token.type)
+    loc = token.location
+
     if token.type == 'L_PAREN':
         caller = atom(stream.next(), stream)
         operands = []
@@ -36,16 +42,13 @@ def atom(token, stream):
             if stream.current().type == 'EOF':
                 EX.throw(
                     stream.current().location,
-                    'Unexcpected EOF, missing closing parenthese'
-                )
+                    'Unexcpected EOF, missing closing parenthesis')
             operands.append(atom(stream.next(), stream))
         stream.next()  # Skip the R_PAREN we just spotted ahead.
-        return tree.Call(caller, *operands)
+        return tree.Call(caller, loc, *operands)
     if token.type == 'NUMERIC':
-        return tree.Numeric(numeric(token.string))
+        return tree.Numeric(numeric(token.string), loc)
     if token.type == 'SYMBOL':
-        return tree.Symbol(token.string)
+        return tree.Symbol(token.string, loc)
 
-    return None
-    
-        
+    return tree.Nil(loc)

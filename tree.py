@@ -13,7 +13,7 @@ class Tree(list):
 TAB = ' ' * 2
 class Node(object):
     scope = None
-    def __init__(self, value=None):
+    def __init__(self, value, loc):
         self.value = value
         self.type = self.__class__
         self.name = str(self.type).split('.')[-1][:-2]
@@ -24,15 +24,23 @@ class Node(object):
             self.value
         )
 
+class Nil(Node):
+    def __init__(self, loc):
+        self.location = loc
+        self.value = 'nil'
+        self.type = self.__class__
+        self.name = str(self.type).split('.')[-1][:-2]
+
 class Operator(Node):
-    def __init__(self, value, *operands):
+    def __init__(self, value, loc, *operands):
+        self.location = loc
         self.operands = list(operands)
         self.value = value
         self.type = self.__class__
         self.name = str(self.type).split('.')[-1][:-2]
     def __str__(self, depth=0):  # Don't even try to understand this.
         operands = '\n'.join(
-            map(lambda e: u'\u2503{}'.format(TAB * (depth + [2,depth][depth>0])) + e.__str__(depth + 2), self.operands)
+            map(lambda e: (u'\u2503{}'.format(TAB * (depth + [2,depth][depth>0])) + e.__str__(depth + 2)), self.operands)
         )
         caller_lines = self.value.__str__().split('\n')
         caller = '\n{}'.format(TAB*(depth+2) + ' ').join(caller_lines)
@@ -44,7 +52,8 @@ class Operator(Node):
         ) + (']>' if len(self.operands) == 0 else ('\n' + operands + u'\n\u2503  {}]>'.format(TAB * (depth + [2,3][depth>0]))))
 
 class Data(Node):
-    def __init__(self, value):
+    def __init__(self, value, loc):
+        self.location = loc
         self.value = value
         self.type = self.__class__
         self.name = str(self.type).split('.')[-1][:-2]

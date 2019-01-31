@@ -6,7 +6,7 @@ EOF = '\0'
 def exp(raw):
     return re.compile(raw)
 
-IDENT_STR = r"[_A-Za-z\+\-\*\/\?\!][0-9\'a-zA-Z_\-\*\+\/\?\!]*"
+IDENT_STR = r"[_A-Za-z\+\-\=\<\>\*\/\?\!][0-9\'a-zA-Z_\-\*\+\=\<\>\/\?\!]*"
 
 L_PAREN    = exp(r"\A\(")
 R_PAREN    = exp(r"\A\)")
@@ -22,7 +22,7 @@ class Token(object):
         self.string = string
         self.location = loc
         self.location['span'] = len(string)
-        
+
     def __str__(self):
         return "<Token({}) '{}'>".format(
             self.type,
@@ -56,7 +56,7 @@ class TokenStream(object):
 
     def pop(self, j = -1):
         return self.tokens.pop(j)
-        
+
     def next(self, j = 1):
         self.i += j
         if self.i >= self.size():
@@ -74,6 +74,14 @@ class TokenStream(object):
 
     def behind(self, j = 1):
         return self.tokens[self.i - j]
+
+    def purge(self, type):
+        new = []
+        for e in self.tokens:
+            if e.type != type:
+                new.append(e)
+        self.tokens = new
+        return new
 
     def __str__(self):
         def form(s):
@@ -104,7 +112,7 @@ def lex(string, file):
                 'column': column
             }))
             break
-        
+
         # Ignore comments, we dont need them in our token stream.
         if partial[0] == ';':
             j = 0
@@ -123,7 +131,7 @@ def lex(string, file):
             i += 1
             column += 1
             continue
-        
+
         # Match R_PAREN
         if partial[0] == ')':
             stream.add(Token('R_PAREN', partial[0], {
@@ -192,5 +200,3 @@ def lex(string, file):
             continue
         i += 1
     return stream
-
-    

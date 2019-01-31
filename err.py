@@ -1,28 +1,34 @@
 import sys
 
-LEX   = 'Syntax Error'
-PARSE = 'Parse Error'
-EXEC  = 'Execution Error'
+LEX   = 'Syntax'
+PARSE = 'Parse'
+EXEC  = 'Execution'
 
 def Error(err_type, loc, string, file):
     lines = []
-    with open(file, 'r') as f:
-        lines = f.readlines()
-    lines[-1] += '\0'
-    
+    with open(file, 'r', newline=None) as f:
+        lines = f.read()
+    lines += '\0'
+    lines = lines.split('\n')
+
     snip = lines[loc['line'] - 1]
-    snippet = '\n\nFile contents:      {line}| {snip}\n'.format(
+    snippet = '\n`{file}\' at:      {line}| {snip}\n'.format(
+        file = file,
         line = loc['line'],
         snip = snip
     )
-    snippet += (' ' * (len(snippet) - len(snip) + loc['column'] - 4)) + '^\n'
-    message = '[!!] - {kind} at ({line}:{col}) in file `{file}\':\n\t>>> {msg}'.format(
+
+    span = 1
+    if 'span' in loc.keys():
+        span = loc['span']
+    snippet += (' ' * (len(snippet) - len(snip) + loc['column'] - 3)) + ('^' * span)
+    message = '[!!] - {kind} Error at ({line}:{col}) in file `{file}\':\n\t>>> {msg}'.format(
         kind = err_type,
         file = file,
         line = loc['line'], col = loc['column'],
-        msg = string + ['.', ''][string[-1] in ['.', '!', '?']]
+        msg  = '\n\t  '.join((string + ['.', ''][string[-1] in ['.', '!', '?']]).split('\n'))
     )
-    print(snippet + message)
+    print(snippet + '\n' + message + '\n')
     sys.exit(1)
 
 
