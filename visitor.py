@@ -160,6 +160,8 @@ def evaluate(node):
                 return result
 
             if method == '-':
+                if len(node.operands) == 1:
+                    return -evaluate(node.operands[0])
                 result = evaluate(node.operands[0]) - sum(map(evaluate, node.operands[1:]))
                 return result
 
@@ -178,28 +180,28 @@ def evaluate(node):
             if method == '<':
                 min = evaluate(node.operands[0])
                 for op in node.operands[1:]:
-                    if evaluate(op) >= min:
+                    if evaluate(op) <= min:
                         return False
                 return True
 
             if method == '>':
                 max = evaluate(node.operands[0])
                 for op in node.operands[1:]:
-                    if evaluate(op) <= maz:
+                    if evaluate(op) >= max:
                         return False
                 return True
 
             if method == '<=':
                 min = evaluate(node.operands[0])
                 for op in node.operands[1:]:
-                    if evaluate(op) > min:
+                    if evaluate(op) < min:
                         return False
                 return True
 
             if method == '>=':
-                min = evaluate(node.operands[0])
+                max = evaluate(node.operands[0])
                 for op in node.operands[1:]:
-                    if evaluate(op) < min:
+                    if evaluate(op) > max:
                         return False
                 return True
 

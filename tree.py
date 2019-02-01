@@ -10,7 +10,7 @@ class Tree(list):
         )) + u'\n\u2503'
 
 
-TAB = ' ' * 2
+TAB = ' ' * 3
 class Node(object):
     scope = None
     def __init__(self, value, loc):
@@ -40,7 +40,7 @@ class Operator(Node):
         self.name = str(self.type).split('.')[-1][:-2]
     def __str__(self, depth=0):  # Don't even try to understand this.
         operands = '\n'.join(
-            map(lambda e: (u'\u2503{}'.format(TAB * (depth + [2,depth][depth>0])) + e.__str__(depth + 2)), self.operands)
+            map(lambda e: (u'\u2503{}'.format(TAB * ([1, 2][depth>0] + depth) + e.__str__(depth + 1))), self.operands)
         )
         caller_lines = self.value.__str__().split('\n')
         caller = '\n{}'.format(TAB*(depth+2) + ' ').join(caller_lines)
