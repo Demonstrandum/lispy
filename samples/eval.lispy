@@ -1,0 +1,13 @@
+(let (a '(f 2)) (b 2))
+(let (c 'a))
+
+(define (f x) (+ x 3))
+
+(puts c)                ;; Just 'a
+(puts (eval c))         ;; Same as (puts a)
+(puts (eval (eval c)))  ;; Same as (puts (f 2))
+
+;; Notice we can call (f 2) depite the
+;; symbol `a' being bound to '(f 2)
+;; before it was even defined.
+;; This has useful applications.

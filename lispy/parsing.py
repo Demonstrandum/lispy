@@ -1,8 +1,8 @@
-import lexing
-import tree
+from . import lexing
+from . import tree
 
-import err
-import config as conf
+from . import err
+from . import config as conf
 
 EOF = '\0'
 
@@ -50,5 +50,9 @@ def atom(token, stream):
         return tree.Numeric(numeric(token.string), loc)
     if token.type == 'SYMBOL':
         return tree.Symbol(token.string, loc)
+    if token.type == 'ATOM':
+        return tree.Atom(token.string, loc)
+    if token.type == 'UNEVAL':
+        return tree.Uneval(atom(stream.next(), stream), loc)
 
     return tree.Nil(loc)

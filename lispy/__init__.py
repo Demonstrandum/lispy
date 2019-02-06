@@ -1,12 +1,12 @@
-import lexing
-import tree
-import parsing
-import visitor
+from . import lexing
+from . import tree
+from . import parsing
+from . import visitor
 
-import err
-import config as conf
+from . import err
+from . import config as conf
 
-import pickle, sys
+import pickle, sys, os
 
 TEST_FILE = 'testing.lispy'
 
@@ -27,15 +27,28 @@ def run(file):
     if conf.DEBUG:
         print("\n\nAbstract Syntax Tree:\n")
         print(AST)
-        with open('serialised-ast.txt', 'w', encoding='utf-8') as f:
-            f.write('VISUALISED_ABSTRACT_SYNTAX_TREE\n')
-            f.write(str(AST))
-            f.write('\nSERIALISED_PICKLE_AST\n')
-            f.write(str(pickle.dumps(AST)))
+
+    dir = './serialised_trees'
+    try:
+        os.mkdir(dir)
+    except:
+        pass
+    coded = '_'.join(file.split('/'))
+    tree_file = '{}/{}'.format(
+        dir,
+        '.'.join(coded.split('.')[:-1]) + '_serialised.ast')
+    with open(tree_file, 'w+', encoding='utf-8') as f:
+        f.write('VISUALISED_ABSTRACT_SYNTAX_TREE\n')
+        f.write(str(AST))
+        f.write('\nSERIALISED_PICKLE_AST\n')
+        f.write(str(pickle.dumps(AST)))
     visitor.walk(AST)
 
 if __name__ == '__main__':
-    run(TEST_FILE)
+    if len(sys.argv) > 1:
+        run(sys.argv[1])
+    else:
+        run(TEST_FILE)
 
 if conf.DEBUG:
     print('\n\n[!!] -- Set `DEBUG\' to `False\' in "config.py" to stop seeing this information.')

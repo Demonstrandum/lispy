@@ -1,9 +1,9 @@
-import lexing
-import tree
-import parsing
+from . import lexing
+from . import tree
+from . import parsing
 
-import err
-import config as conf
+from . import err
+from . import config as conf
 
 from functools import reduce
 from copy import deepcopy as clone
@@ -115,18 +115,45 @@ def search_tables(current, ident):
 
 search_symbol = search_tables
 
+def is_node(node):
+    return 'value' in dir(node)
+
+def to_s(node):
+    if not is_node(node):
+        return str(node)
+
+    if node.type in [tree.Symbol, tree.Atom, tree.Numeric]:
+        return str(node.value)
+
+    if node.type == tree.Nil:
+        return 'Nil'
+
+    if node.type == tree.Uneval:
+        return '\'' + to_s(node.value)
+
+    if node.type == tree.Call:
+        operands = ' '.join(map(to_s, node.operands))
+        operands = ['', ' '][len(operands) > 0] + operands
+        return '(' + to_s(node.value) + operands + ')'
+
+    return 'UNMAPED_DATATYPE'
 
 CURRENT_SCOPES = [0x0]  # Default scope is main scope.
 
 def evaluate(node):
     global TABLES, CURRENT_SCOPES, FROZEN_TABLES, CALL_STACK
     global EX, CURRENT_LOCATION
+
+    if not is_node(node):
+        return node
+
     CURRENT_LOCATION = node.location
     if conf.DEBUG:
         print("Current scope: {}, i.e. '{}'".format(
             hex(CURRENT_SCOPES[-1]),
             lookup_table(CURRENT_SCOPES[-1]).name))
 
+        print("All Scope Tables: [{}]".format(', '.join(map(str, TABLES))))
         print("Frozen Tables: [{}]".format(', '.join(map(str, FROZEN_TABLES))))
 
     if node.type is tree.Nil:
@@ -135,10 +162,12 @@ def evaluate(node):
         return node.value
     if node.type is tree.Symbol:
         return search_tables(CURRENT_SCOPES, node.value)
+    if node.type is tree.Uneval:
+        return node
     if node.type is tree.Call:
         if node.value.type is tree.Symbol:
             method = node.value.value
-
+            if conf.DEBUG: print("Calling symbolic method: ", repr(method))
             if method == 'if':
                 if evaluate(node.operands[0]):
                     return evaluate(node.operands[1])
@@ -154,6 +183,14 @@ def evaluate(node):
                     if len(node.operands) > 2:
                         return evaluate(node.operands[2])
                 return None
+
+            if method == 'eval':
+                if len(node.operands) > 1:
+                    EX.throw(node.location, 'Internal function `eval\' takes exactly one argument')
+                inside = evaluate(node.operands[0])
+                if not is_node(inside):
+                    return inside
+                return evaluate(inside.value)
 
             if method == '+':
                 result = sum(map(evaluate, node.operands))
@@ -178,35 +215,48 @@ def evaluate(node):
                 return result
 
             if method == '<':
-                min = evaluate(node.operands[0])
+                max = evaluate(node.operands[0])
                 for op in node.operands[1:]:
-                    if evaluate(op) <= min:
+                    after = evaluate(op)
+                    if max >= after:
                         return False
+                    max = after
                 return True
 
             if method == '>':
                 max = evaluate(node.operands[0])
                 for op in node.operands[1:]:
-                    if evaluate(op) >= max:
+                    after = evaluate(op)
+                    if max <= after:
                         return False
+                    max = after
                 return True
 
             if method == '<=':
-                min = evaluate(node.operands[0])
+                max = evaluate(node.operands[0])
                 for op in node.operands[1:]:
-                    if evaluate(op) < min:
+                    after = evaluate(op)
+                    if max > after:
                         return False
+                    max = after
                 return True
 
             if method == '>=':
                 max = evaluate(node.operands[0])
                 for op in node.operands[1:]:
-                    if evaluate(op) > max:
+                    after = evaluate(op)
+                    if max < after:
                         return False
+                    max = after
                 return True
 
+            if method == 'string':
+                compositon = lambda x: to_s(evaluate(x))
+                return ' '.join(map(compositon, node.operands))
+
             if method == 'out':
-                result = ' '.join(map(str, map(evaluate, node.operands)))
+                compositon = lambda x: to_s(evaluate(x))
+                result = ' '.join(map(str, map(compositon, node.operands)))
                 if conf.DEBUG:
                     print('[out] --- <STDOUT>: `' + result + "'")
                 else:
@@ -214,9 +264,10 @@ def evaluate(node):
                 return result
 
             if method == 'puts':
-                result = '\n'.join(map(str, map(evaluate, node.operands)))
+                compositon = lambda x: to_s(evaluate(x))
+                result = '\n'.join(map(str, map(compositon, node.operands)))
                 if conf.DEBUG:
-                    print('[out] --- <STDOUT>: `' + result + "'")
+                    print('[puts] --- <STDOUT>: `' + result + "'")
                 else:
                     print(result)
                 return result
@@ -228,8 +279,8 @@ def evaluate(node):
                     if conf.DEBUG: print("Let is defining: ", op.value.value)
                     immediate_table.bind(op.value.value, evaluate(op.operands[0]))
                 if conf.DEBUG: print('After let, defined variables in current scope, are: ', lookup_table(CURRENT_SCOPES[-1]).local)
-
                 return
+
             if method == 'lambda':
                 table = SymbolTable(id(node), '_lambda')
                 args = [node.operands[0].value] + node.operands[0].operands

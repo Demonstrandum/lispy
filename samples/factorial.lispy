@@ -1,0 +1,6 @@
+(define (factorial n)
+  (unless (< n 1)
+    (* (factorial (- n 1)) n)
+    1))
+
+(puts (factorial 6))

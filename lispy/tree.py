@@ -75,8 +75,5 @@ class Atom(Data):
 class Numeric(Data):
     pass
 
-class Atom(Node):
-    pass
-
 class Uneval(Data):
     pass
