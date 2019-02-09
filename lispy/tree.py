@@ -21,7 +21,7 @@ class Node(object):
         return "{}<AST::Node[{}] ({})>".format(
             '' if depth == 0 else TAB * 2,
             self.name,
-            self.value
+            repr(self.value)
         )
 
 class Nil(Node):
@@ -76,4 +76,7 @@ class Numeric(Data):
     pass
 
 class Uneval(Data):
+    pass
+
+class String(Data):
     pass

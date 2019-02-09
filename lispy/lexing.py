@@ -1,4 +1,5 @@
-import re
+from . import err
+import re, ast
 
 
 EOF = '\0'
@@ -8,7 +9,7 @@ def exp(raw):
 
 # Identifiers are matched as such:
 #   (Atoms and Symbols are the only identifiers)
-IDENT_STR = r"[_A-Za-z\+\-\=\<\>\*\/\?\!][0-9\'a-zA-Z_\-\*\+\=\<\>\/\?\!]*"
+IDENT_STR = r"[_A-Za-z\+\-\=\<\>\*\/\%\?\!][0-9\'a-zA-Z_\-\*\+\=\<\>\/\%\?\!]*"
                                          # e.g.
 L_PAREN    = exp(r"\A\(")                # '('
 R_PAREN    = exp(r"\A\)")                # ')'
@@ -16,9 +17,9 @@ NIL        = exp(r"\Anil")               # 'nil'
 SYMBOL     = exp(r"\A" + IDENT_STR)      # 'hello-world'
 UNEVAL     = exp(r"\A\'")                # '
 ATOM       = exp(r"\A(\:)" + IDENT_STR)  # ':good-bye'
-NUMERIC    = exp(r"[0-9]+(\.[0-9]+)?([xob][0-9]+)?(e[\+\-]?)?[0-9a-fA-f]*")
-TERMINATOR = exp(r"\n")
-
+NUMERIC    = exp(r"\A[0-9]+(\.[0-9]+)?([xob][0-9]+)?(e[\+\-]?)?[0-9a-fA-f]*")
+TERMINATOR = exp(r"\A\n")
+STRING     = exp(r"\A([\"'])((\\{2})*|(.*?[^\\](\\{2})*))\1")
 # `Token` object is a chunk of the code we're interpreting;
 #         it holds the type of thing it is as well as what
 #         exactly the writer has written and at what line and
@@ -112,15 +113,16 @@ class TokenStream(object):
     def __str__(self):
         def form(s):
             loc = [s.location['line'], s.location['column']]
-            return '<Token({}) {} {} ... "{}">'.format(
+            return '<Token({}) {} {} ... {}>'.format(
                 s.type,
                 '.' * (24 - (len(s.type) + len(str(loc)))),
                 loc,
-                s.string
+                repr(s.string)
             )
         return '\n'.join(map(form, self.tokens))
 
 def lex(string, file):
+    EX = err.Thrower(err.LEX, file)
     string += EOF
     stream = TokenStream(file)
     i = 0
@@ -168,7 +170,15 @@ def lex(string, file):
             column += 1
             continue
 
-        # Match Nils
+        # Match Nil token
+        if partial[:3] == 'nil':
+            stream.add(Token('NIL', partial[:3], {
+                'line': line,
+                'column': column
+            }))
+            i += 3
+            column += 3
+            continue
 
         # Match unevaluator
         if partial[0] == "'":
@@ -178,6 +188,36 @@ def lex(string, file):
             }))
             i += 1
             column += 1
+            continue
+
+        # Match string
+        if partial[0] == '"':
+            contents = ""
+            j = 1
+            loc = {'line': line, 'column': column}
+            while partial[j] != '"':
+                if partial[j+1] == EOF:
+                    EX.throw({'line': line, 'column': column},
+                        'Unexpected EOF while reading string,\n'
+                        + 'please check that you closed your quote...')
+                if partial[j] == '\n':
+                    contents += '\\n'
+                    line += 1
+                    column = 1
+                    j += 1
+                    continue
+                if partial[j] == '\\':
+                    contents += '\\' + partial[j+1]
+                    j += 2
+                    column += 1
+                    continue
+                contents += partial[j]
+                column += 1
+                j += 1
+
+            contents = '"' + contents + '"'
+            stream.add(Token('STRING', ast.literal_eval(contents), loc))
+            i += j + 1
             continue
 
         # Match an atom
@@ -218,7 +258,7 @@ def lex(string, file):
 
         column += 1
         if partial[0] == "\n":
-            stream.add(Token('TERMINATOR', r"\n", {
+            stream.add(Token('TERMINATOR', "\n", {
                 'line': line,
                 'column': column - 1
             }))

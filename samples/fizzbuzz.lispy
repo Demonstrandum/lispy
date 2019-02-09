@@ -1,0 +1,18 @@
+(define (f x)
+  (if (= (% x 3) 0)
+    (if (= (% x 5) 0)
+      "fizzbuzz"
+      "fizz")
+    (string x)))
+
+
+(let (a (list)))
+
+(define (fill ar n m)
+  (unless (< n m)
+    (fill (push m ar) n (+ m 1))
+    ar))
+
+
+(concat (fill a 100 1) a)
+(puts a)

@@ -22,7 +22,7 @@ def parse(stream, AST=None):
         stream.purge('TERMINATOR')
     if conf.DEBUG: print("TOP LEVEL PARSE: ", stream.current())
     branch = atom(stream.current(), stream)
-    if branch.type is not tree.Nil:
+    if branch is not -1:
         if conf.DEBUG: print('Adding branch: ', branch.type)
         AST.push(branch)
     if stream.ahead().type == 'EOF':
@@ -36,7 +36,11 @@ def atom(token, stream):
     loc = token.location
 
     if token.type == 'L_PAREN':
-        caller = atom(stream.next(), stream)
+        caller = None
+        if stream.ahead().type != 'R_PAREN':
+            caller = atom(stream.next(), stream)
+        else:
+            return tree.Call(caller, loc)
         operands = []
         while stream.ahead().type != 'R_PAREN':
             if stream.current().type == 'EOF':
@@ -54,5 +58,9 @@ def atom(token, stream):
         return tree.Atom(token.string, loc)
     if token.type == 'UNEVAL':
         return tree.Uneval(atom(stream.next(), stream), loc)
+    if token.type == 'STRING':
+        return tree.String(token.string, loc)
+    if token.type == 'NIL':
+        return tree.Nil(loc)
 
-    return tree.Nil(loc)
+    return -1

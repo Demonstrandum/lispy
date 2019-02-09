@@ -50,6 +50,6 @@ if __name__ == '__main__':
     else:
         run(TEST_FILE)
 
-if conf.DEBUG:
-    print('\n\n[!!] -- Set `DEBUG\' to `False\' in "config.py" to stop seeing this information.')
-    input('\n\nPress Enter to continue...')
+    if conf.DEBUG:
+        print('\n\n[!!] -- Set `DEBUG\' to `False\' in "config.py" to stop seeing this information.')
+        input('\n\nPress Enter to continue...')

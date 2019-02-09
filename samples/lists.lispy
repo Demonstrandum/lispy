@@ -1,0 +1,58 @@
+;; This file shows the most basic types of lists,
+;;   their individual features, and their most basic operations.
+
+(let (array '(1 2 3 4)))
+
+(puts (index 1 array))        ;; Expect 2
+(puts (index 4 '(2 4 1 7 9))) ;; Expect 9
+(puts (index (- 1) '(2 4 1 7 9))) ;; Expect 9 again, because of negative index.
+
+;; It's important to remember that these sorts of lists,
+;;   because of being unevaluated, will only have their arguments
+;;   evaluated at time of indexing them.
+;; Hence we can do this:
+(let (a '(2 (+ 3 2) (f c) 7)))
+
+;; (+ 3 2) was never evaluated, and
+;;   (f c) doesn't throw an error for being
+;;   undefined, however if we were to then try to
+;;   index it without defining f or c, it would throw an error.
+
+(define (f x) (+ 17 x))
+(let (c 3))
+
+(puts (index 2 a))
+
+(puts)
+(let (vec1 (list 3 4 (f 4) 7))
+     (vec2     '(3 4 (f 4) 7)))
+
+;; When we output these two vectors we can
+;;   clearly see the difference, the list vector (vec1)
+;;   has all its arguments already evaluated, while (vec2)
+;;   still doesn't have (f 4) evaluated yet, because thats only
+;;   ever evaluated at access time, as the list is entierly unevaluated.
+(puts vec1 vec2)
+
+(puts)
+(let (ar '()))
+(unshift (- 1) ar)
+(puts ar)
+(push 2 3 ar)
+(puts ar)
+(push 9 5 7 ar)
+(puts ar)
+
+(puts (unshift 0 1 ar))
+
+(puts)
+(pop ar)
+(puts ar)
+(puts (pop 2 ar))
+
+(shift ar)
+(puts ar)
+(puts (unshift 1 (shift 2 ar)))
+
+;; unshift is also aliased as prepend
+;; push    is      aliased as  append

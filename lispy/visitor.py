@@ -14,10 +14,12 @@ import pickle
 EX = None
 CURRENT_LOCATION = None
 
-class Variable(object):
-    def __init__(self, name, value):
-        self.name = name
-        self.value = value
+class Atomise(object):
+    def __init__(self, string):
+        self.name = string
+        self.hash = hash(string)
+    def __eq__(self, other):
+        return self.hash == other.hash
 
 class Definition(object):
     def __init__(self, branch, table, taking, frozen):
@@ -79,6 +81,8 @@ TABLES = [SymbolTable(0, 'main')]
 FROZEN_TABLES = []
 CALL_STACK = []
 
+ATOMS = {':true': Atomise(':true'), ':false': Atomise(':false')}
+
 def lookup_table(scope):
     global TABLES
     return list(filter(lambda e: e.scope == scope, TABLES))[0]
@@ -119,14 +123,21 @@ def is_node(node):
     return 'value' in dir(node)
 
 def to_s(node):
+    if node is None:
+        return ''
     if not is_node(node):
+        if type(node) is Definition:
+            return '<definition`{}\' taking{}>'.format(
+                node.table.name, list(map(to_s, node.args)))
+        if type(node) is Atomise:
+            return node.name
         return str(node)
 
     if node.type in [tree.Symbol, tree.Atom, tree.Numeric]:
         return str(node.value)
 
     if node.type == tree.Nil:
-        return 'Nil'
+        return 'nil'
 
     if node.type == tree.Uneval:
         return '\'' + to_s(node.value)
@@ -136,16 +147,38 @@ def to_s(node):
         operands = ['', ' '][len(operands) > 0] + operands
         return '(' + to_s(node.value) + operands + ')'
 
-    return 'UNMAPED_DATATYPE'
+    return 'UNMAPED_DATATYPE'  # Really all datatypes should have their
+                               #   own return value, but just in case
+                               #   I forgot anythin, we'll return this.
 
-CURRENT_SCOPES = [0x0]  # Default scope is main scope.
+# Function to check if node is a list...
+def check_list(maybe_list, node):
+    if not is_node(maybe_list):
+        EX.throw(node.operands[1].location,
+            'The list to be indexed must be a list,\n'
+            + 'i.e. it needs to be unevaluated,\n'
+            + 'otherwise that list would become evaluated into\n'
+            + 'something that is not a list anymore...')
+    if maybe_list.value.type != tree.Call:
+        EX.throw(node.operands[1].location,
+            'Argument for list is not a list,\n'
+            + 'make sure that you are supplying an unevaluated\n'
+            + 'list to the `index` macro...')
+
+
+CURRENT_SCOPES = [0x0]  # Default scope is main scope (0x0).
 
 def evaluate(node):
     global TABLES, CURRENT_SCOPES, FROZEN_TABLES, CALL_STACK
-    global EX, CURRENT_LOCATION
+    global EX, CURRENT_LOCATION, ATOMS
+    # All tables and scope/call stacks need to be
+    # able to be modified by this method.
 
     if not is_node(node):
-        return node
+        return node  # Anything that isn't an AST node will simply
+                     #   be retuned as itself, as that means it's already
+                     #   an evaluated fundemental datatype attempting to be
+                     #   evaluated with no reason. e.g. (eval 2)...
 
     CURRENT_LOCATION = node.location
     if conf.DEBUG:
@@ -157,40 +190,191 @@ def evaluate(node):
         print("Frozen Tables: [{}]".format(', '.join(map(str, FROZEN_TABLES))))
 
     if node.type is tree.Nil:
-        return None
+        return node  # Doesn't get evaluated per se.
+    if node.type is tree.Atom:
+        if node.value in ATOMS:
+            return ATOMS[node.value]
+        ATOMS[node.value] = Atomise(node.value)
+        return ATOMS[node.value]
     if node.type is tree.Numeric:
         return node.value
     if node.type is tree.Symbol:
         return search_tables(CURRENT_SCOPES, node.value)
     if node.type is tree.Uneval:
-        return node
+        return node  # Doesn't get evaluated per se.
+    if node.type is tree.String:
+        return node.value
     if node.type is tree.Call:
+        if node.value is None:
+            EX.throw(node.location,
+                'Cannot make emoty call. Evaluating an\n'+
+                'empty list does not make sense.')
         if node.value.type is tree.Symbol:
             method = node.value.value
             if conf.DEBUG: print("Calling symbolic method: ", repr(method))
             if method == 'if':
-                if evaluate(node.operands[0]):
+                check = evaluate(node.operands[0])
+                if check is ATOMS[':true'] and check:
                     return evaluate(node.operands[1])
                 else:
                     if len(node.operands) > 2:
                         return evaluate(node.operands[2])
-                return None
+                return tree.Nil(node.location)
 
             if method == 'unless':
-                if not evaluate(node.operands[0]):
+                check = evaluate(node.operands[0])
+                if check is ATOMS[':false'] or (not check):
                     return evaluate(node.operands[1])
                 else:
                     if len(node.operands) > 2:
                         return evaluate(node.operands[2])
-                return None
+                return tree.Nil(node.location)
 
             if method == 'eval':
                 if len(node.operands) > 1:
-                    EX.throw(node.location, 'Internal function `eval\' takes exactly one argument')
+                    EX.throw(node.location, '`eval\' built-in macro takes exactly one argument')
                 inside = evaluate(node.operands[0])
                 if not is_node(inside):
                     return inside
                 return evaluate(inside.value)
+
+            if method == 'list':
+                # `list` is simply a way of writing '(1 2 3)
+                #   as (list 1 2 3), the only difference is that all
+                #   the arguments are evaluated at the time of the
+                #   definition of the list, as oppsed to at access time.
+                dlist = list(map(evaluate, node.operands))
+                head = None
+                tail = []
+                if len(dlist) > 0:
+                    head = dlist[0]
+                    tail = dlist[1:]
+                return tree.Uneval(
+                    tree.Call(head, node.location, *tail),
+                    node.location)
+
+            if method == 'index':
+                if len(node.operands) != 2:
+                    EX.throw(node.location,
+                        '`index` built-in macro takes exactly two arguments,\n'
+                        + 'first needs to be a numeric integer index and\n'
+                        + 'second an unevaluated list to be indexed.')
+                index = evaluate(node.operands[0])
+                data  = evaluate(node.operands[1])
+
+                # We must be absolutely certian we have the correct type of
+                #   arguments supplied to the index macro.
+                if type(index) != int:
+                    EX.throw(node.operands[0].location,
+                        'Oridnal index number must be an integer!')
+                check_list(data, node)
+                # We are certain we have the correct datatypes supplied...
+
+                dlist = [data.value.value] + data.value.operands
+                if data.value.value is None:
+                    EX.throw(node.operands[0].location,
+                        'Cannot index empty list.')
+                if index >= len(dlist):
+                    EX.throw(node.operands[0].location,
+                        'Index number out of range, tried to access\n'
+                        + 'index number: {}, in a list only index from 0 to {}.'.format(
+                            index, len(dlist) - 1
+                        ))
+                if index < 0:
+                    # Negative indices will simply be looking at the list
+                    #  from right to left, if we look at a negative index
+                    #  that's got a magnitude greater than the magnitude of
+                    #  the list, we will simply loop the back of the list again
+                    #  by use of the modulus operator...
+                    index = abs(index)
+                    if index > len(dlist):
+                        index %= len(dlist)
+                    index = len(dlist) - index
+
+                return evaluate(dlist[index])
+
+            # push macro, for pushing to a list
+            if method == 'push' or method == 'append':
+                if len(node.operands) < 2:
+                    EX.throw(node.location,
+                        '`push` built-in macro needs at least\n'
+                        + 'two arguments.')
+                elems = list(map(evaluate, node.operands[:-1]))
+                data = evaluate(node.operands[-1])
+                # Check that data is indeed a list.
+                check_list(data, node)
+
+                if data.value.value is None:
+                    data.value.value = elems[0]
+                    data.value.operands += elems[1:]
+                else:
+                    data.value.operands += elems
+
+                return data
+
+            # Unshift adds items to the front of a list
+            if method == 'unshift' or method == 'prepend':
+                if len(node.operands) < 2:
+                    EX.throw(node.location,
+                        '`unshift` built-in macro needs at least\n'
+                        + 'two arguments.')
+                elems = list(map(evaluate, node.operands[:-1]))[::-1]
+                data = evaluate(node.operands[-1])
+                # Check that data is indeed a list.
+                check_list(data, node)
+
+                # We need to think about whether it's empty or not.
+                if data.value.value is None:
+                    data.value.value = elems[0]
+                    data.value.operands = elems[1:] + data.value.operands
+                else:
+                    old_head = data.value.value
+                    data.value.value = elems[0]
+                    data.value.operands = elems[1:] + [old_head] + data.value.operands
+
+                return data
+
+            if method == 'concat':
+                if len(node.operands) != 2:
+                    EX.throw(node.value.location)
+
+            def list_destruction(method):
+                data = None
+                amount = 1
+                first_arg = evaluate(node.operands[0])
+                if type(first_arg) is tree.Uneval:
+                    data = first_arg
+                else:
+                    amount = first_arg
+                    if type(amount) is not int:
+                        EX.throw(node.operands[0].location,
+                            'First argument supplied must be a list,\n'
+                            + 'or a CARDINAL INTEGER, specifying how many\n'
+                            + 'items are to be popped off the list.')
+                    data = evaluate(node.operands[1])
+                check_list(data, node)
+
+                if data.value.value is None:
+                    return data
+                dlist = [data.value.value] + data.value.operands
+                for _ in range(amount):
+                    try:
+                        method(dlist)
+                    except:
+                        break
+                if len(dlist) == 0:
+                    data.value.value = None
+                    data.value.operands = []
+                    return data
+                data.value.value = dlist[0]
+                data.value.operands = dlist[1:]
+                return data
+
+            if method == 'pop':
+                return list_destruction(list.pop)
+
+            if method == 'shift':
+                return list_destruction(lambda l: l.pop(0))
 
             if method == '+':
                 result = sum(map(evaluate, node.operands))
@@ -210,45 +394,49 @@ def evaluate(node):
                 result = reduce(lambda a, b: a / b, map(evaluate, node.operands))
                 return result
 
+            if method == '%':
+                result = reduce(lambda a, b: a % b, map(evaluate, node.operands))
+                return result
+
             if method == '=':
                 result = reduce(lambda a, b: a == b, map(evaluate, node.operands))
-                return result
+                return [ATOMS[':false'], ATOMS[':true']][result]
 
             if method == '<':
                 max = evaluate(node.operands[0])
                 for op in node.operands[1:]:
                     after = evaluate(op)
                     if max >= after:
-                        return False
+                        return ATOMS[':false']
                     max = after
-                return True
+                return ATOMS[':true']
 
             if method == '>':
                 max = evaluate(node.operands[0])
                 for op in node.operands[1:]:
                     after = evaluate(op)
                     if max <= after:
-                        return False
+                        return ATOMS[':false']
                     max = after
-                return True
+                return ATOMS[':true']
 
             if method == '<=':
                 max = evaluate(node.operands[0])
                 for op in node.operands[1:]:
                     after = evaluate(op)
                     if max > after:
-                        return False
+                        return ATOMS[':false']
                     max = after
-                return True
+                return ATOMS[':true']
 
             if method == '>=':
                 max = evaluate(node.operands[0])
                 for op in node.operands[1:]:
                     after = evaluate(op)
                     if max < after:
-                        return False
+                        return ATOMS[':false']
                     max = after
-                return True
+                return ATOMS[':true']
 
             if method == 'string':
                 compositon = lambda x: to_s(evaluate(x))
@@ -315,13 +503,16 @@ def evaluate(node):
             result = execute_method(node)
             return result
 
-
-
     raise Exception("Don't know what to do with %s, this is a bug" % str(node))
 
 
 def execute_method(node):
     definition = evaluate(node.value)
+    if type(definition) is not Definition:
+        EX.throw(node.value.location,
+            'Cannot make call to to type of `{}\''.format(
+                node.value.name
+            ))
 
     args = list(map(lambda e: evaluate(e), node.operands))
     definition.table.give_args(args)
