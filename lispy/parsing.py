@@ -40,6 +40,7 @@ def atom(token, stream):
         if stream.ahead().type != 'R_PAREN':
             caller = atom(stream.next(), stream)
         else:
+            stream.next() # Go past the R_PAREN, so outer calls don't get closed
             return tree.Call(caller, loc)
         operands = []
         while stream.ahead().type != 'R_PAREN':

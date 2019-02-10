@@ -23,7 +23,7 @@
 
 (puts (index 2 a))
 
-(puts)
+(puts "\n")
 (let (vec1 (list 3 4 (f 4) 7))
      (vec2     '(3 4 (f 4) 7)))
 
@@ -34,7 +34,17 @@
 ;;   ever evaluated at access time, as the list is entierly unevaluated.
 (puts vec1 vec2)
 
-(puts)
+(puts "\n")
+(puts (concat vec1 vec2)) ;; Returns their concatination.
+(puts vec1) ;; But vec1 (& vec2) remain unaltered.
+
+(concat! vec1 vec2)   ;; The bang (!) at the end signifies that
+                      ;;   it is now a `destructive' method...
+(puts vec1)           ;;   This means the the result of one of its
+  ;;  ^vec1 changed   ;;   arguments (here the 1st one) actually get
+                      ;;   altered.
+
+(puts "\n")
 (let (ar '()))
 (unshift (- 1) ar)
 (puts ar)
@@ -45,7 +55,7 @@
 
 (puts (unshift 0 1 ar))
 
-(puts)
+(puts "\n")
 (pop ar)
 (puts ar)
 (puts (pop 2 ar))

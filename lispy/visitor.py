@@ -6,9 +6,9 @@ from . import err
 from . import config as conf
 
 from functools import reduce
-from copy import deepcopy as clone
+from copy import copy as clone
 
-import sys
+import sys, os
 import pickle
 
 EX = None
@@ -37,16 +37,26 @@ class SymbolTable(object):
         self.scope = scope
         self.name = name
         self.local = {}
+        self.mutables = []
         self.args = []
         self.type = __class__
         self.frozen = False
 
+    def freeze(self):
+        new = SymbolTable(self.scope, self.name)
+        new.frozen = True
+        new.local = clone(self.local)
+        new.mutables = self.mutables
+        new.args = self.args
+        return new
+
     def push(self, symbol, value):
         global EX
-        if symbol in self.local.keys():
-            s = 'Symbol bindings are immutable, symbol: `%s' % symbol
-            + "' cannot be mutated."
-            EX.throw(CURRENT_LOCATION, s)
+        if symbol in self.local:
+            if symbol not in self.mutables and symbol[0] != '$':
+                s = (('Symbol bindings are immutable, symbol: `%s' % symbol)
+                    + "' cannot be mutated.")
+                EX.throw(CURRENT_LOCATION, s)
         self.local[symbol] = value
     bind = push
 
@@ -68,20 +78,25 @@ class SymbolTable(object):
     def clean(self):
         self.local = {}
 
-    def freeze(self):
-        self.frozen = True
-
     def __str__(self):
         return '<TABLE`{}`:{}{}>'.format(
             self.name,
             hex(self.scope),
             ['', ' [frozen]'][self.frozen])
 
-TABLES = [SymbolTable(0, 'main')]
+TABLES = [SymbolTable(0, '_main')]
 FROZEN_TABLES = []
 CALL_STACK = []
 
 ATOMS = {':true': Atomise(':true'), ':false': Atomise(':false')}
+
+def load_file(name):
+    PROGRAM_STRING = None
+    with open(name, 'r') as file:
+        PROGRAM_STRING = file.read()
+    stream = lexing.lex(PROGRAM_STRING, name)
+    AST = parsing.parse(stream)
+    visit(AST)
 
 def lookup_table(scope):
     global TABLES
@@ -119,6 +134,15 @@ def search_tables(current, ident):
 
 search_symbol = search_tables
 
+def symbol_declared(current, ident):
+    global TABLES
+    subtree = None
+    tables = FROZEN_TABLES + current_tables(current) + CALL_STACK
+    for table in tables[::-1]:  # Search backwards, from children towards parents
+        if ident in list(table.local.keys()):
+            return True
+    return False
+
 def is_node(node):
     return 'value' in dir(node)
 
@@ -154,17 +178,23 @@ def to_s(node):
 # Function to check if node is a list...
 def check_list(maybe_list, node):
     if not is_node(maybe_list):
-        EX.throw(node.operands[1].location,
+        EX.throw(maybe_list.location,
             'The list to be indexed must be a list,\n'
             + 'i.e. it needs to be unevaluated,\n'
             + 'otherwise that list would become evaluated into\n'
             + 'something that is not a list anymore...')
     if maybe_list.value.type != tree.Call:
-        EX.throw(node.operands[1].location,
+        EX.throw(maybe_list.location,
             'Argument for list is not a list,\n'
             + 'make sure that you are supplying an unevaluated\n'
             + 'list to the `index` macro...')
 
+def name_node(node):
+    base_case = (type(node) is str) or (type(node) is Atomise)
+    if base_case: return base_case
+    if type(node) is tree.Uneval and type(node.value) is tree.Symbol:
+        return True
+    return False
 
 CURRENT_SCOPES = [0x0]  # Default scope is main scope (0x0).
 
@@ -186,8 +216,10 @@ def evaluate(node):
             hex(CURRENT_SCOPES[-1]),
             lookup_table(CURRENT_SCOPES[-1]).name))
 
-        print("All Scope Tables: [{}]".format(', '.join(map(str, TABLES))))
-        print("Frozen Tables: [{}]".format(', '.join(map(str, FROZEN_TABLES))))
+        print("\nAll Scope Tables: [{}]".format(', '.join(map(str, TABLES))))
+        print("\nCurrent Scopes:   [{}]".format(', '.join(map(str, CURRENT_SCOPES))))
+        print("\nCall Tables:      [{}]".format(', '.join(map(str, CALL_STACK))))
+        print("\nFrozen Tables:    [{}]".format(', '.join(map(str, FROZEN_TABLES))))
 
     if node.type is tree.Nil:
         return node  # Doesn't get evaluated per se.
@@ -212,6 +244,63 @@ def evaluate(node):
         if node.value.type is tree.Symbol:
             method = node.value.value
             if conf.DEBUG: print("Calling symbolic method: ", repr(method))
+
+            if method == 'require':
+                files = list(map(evaluate, node.operands))
+
+                i = 0
+                for f in files:
+                    if not name_node(f):
+                        t = str(type(f))
+                        if is_node(f):
+                            if f.type is tree.Uneval:
+                                t = 'Unevaluation of ' + f.value.name
+                            else:
+                                t = f.name
+                        else:
+                            if type(f) is int or type(f) is float:
+                                t = 'Numeric'
+                        EX.throw(node.operands[i].location,
+                            'Can\'t interpret type `{}\' as a name for anything'.format(t))
+
+                    file_name = None
+                    if type(f) is Atomise:
+                        file_name = f.name[1:]
+                    elif type(f) is str:
+                        file_name = f
+                    elif type(f) is tree.Uneval:
+                        file_name = f.value.value
+                    if file_name is None:
+                        EX.throw(node.operands[i].location,
+                            'Was not able to deduce a filename from `require\n`'+
+                            + 'argument supplied...')
+
+                    curren_path = os.path.dirname(node.location['filename'])
+                    file_name = curren_path + '/' + file_name
+                    if not os.path.isfile(file_name):
+                        file_name = file_name + '.lispy'
+                        if not os.path.isfile(file_name):
+                            EX.throw(node.operands[i].location,
+                                'Cannot find file `{s}\' or `{s}.lispy\''.format(
+                                    s=file_name
+                                ))
+
+                    # Start reading the actual file:
+                    if conf.DEBUG: print("\n\nLOADING FILE: ", file_name)
+                    load_file(file_name)
+                    # Finished the walk...
+
+                    i += 1
+                return ATOMS[':true']
+
+            if method == 'eval':
+                if len(node.operands) > 1:
+                    EX.throw(node.location, '`eval\' built-in macro takes exactly one argument')
+                inside = evaluate(node.operands[0])
+                if not is_node(inside):
+                    return inside
+                return evaluate(inside.value)
+
             if method == 'if':
                 check = evaluate(node.operands[0])
                 if check is ATOMS[':true'] and check:
@@ -230,14 +319,6 @@ def evaluate(node):
                         return evaluate(node.operands[2])
                 return tree.Nil(node.location)
 
-            if method == 'eval':
-                if len(node.operands) > 1:
-                    EX.throw(node.location, '`eval\' built-in macro takes exactly one argument')
-                inside = evaluate(node.operands[0])
-                if not is_node(inside):
-                    return inside
-                return evaluate(inside.value)
-
             if method == 'list':
                 # `list` is simply a way of writing '(1 2 3)
                 #   as (list 1 2 3), the only difference is that all
@@ -252,6 +333,17 @@ def evaluate(node):
                 return tree.Uneval(
                     tree.Call(head, node.location, *tail),
                     node.location)
+
+            if method == 'size':
+                if len(node.operands) != 1:
+                    EX.throw(node.operands[0].location,
+                        '`size` built-in macro takes exactly one list argument')
+                dlist = evaluate(node.operands[0])
+                check_list(dlist, node)
+
+                if dlist.value.value is None:
+                    return 0
+                return 1 + len(dlist.value.operands)
 
             if method == 'index':
                 if len(node.operands) != 2:
@@ -334,9 +426,33 @@ def evaluate(node):
 
                 return data
 
-            if method == 'concat':
-                if len(node.operands) != 2:
-                    EX.throw(node.value.location)
+            def concat():
+                if len(node.operands) < 2:
+                    EX.throw(node.value.location,
+                        '`concat` must take two or more lists')
+                dlists = list(map(evaluate, node.operands))
+                for l in dlists:
+                    check_list(l, node)
+
+                concated = []
+                for l in dlists:
+                    if l.value.value is not None:
+                        concated += [l.value.value] + l.value.operands
+                here = node.location
+                if len(concated) > 0:
+                    return tree.Uneval(tree.Call(concated[0], here, *concated[1:]), here)
+                else:
+                    return tree.Uneval(tree.Call(None, here), here)
+
+            if method == 'concat' or method == 'merge':
+                return concat()
+
+            if method == 'concat!' or method == 'merge!':
+                concated = concat()
+                first = evaluate(node.operands[0])
+
+                first.value = concated.value
+                return first
 
             def list_destruction(method):
                 data = None
@@ -464,7 +580,8 @@ def evaluate(node):
                 immediate_scope = CURRENT_SCOPES[-1]
                 immediate_table = lookup_table(immediate_scope)
                 for op in node.operands:
-                    if conf.DEBUG: print("Let is defining: ", op.value.value)
+                    if conf.DEBUG: print("let is defining: ", op.value.value)
+                    if conf.DEBUG: print("while alredy: ", lookup_table(CURRENT_SCOPES[-1]).local, "... exist\n\n")
                     immediate_table.bind(op.value.value, evaluate(op.operands[0]))
                 if conf.DEBUG: print('After let, defined variables in current scope, are: ', lookup_table(CURRENT_SCOPES[-1]).local)
                 return
@@ -474,8 +591,8 @@ def evaluate(node):
                 args = [node.operands[0].value] + node.operands[0].operands
                 table.declare_args(list(map(lambda e: e.value, args)))
                 TABLES.append(table)
-                frozen = clone(current_tables(CURRENT_SCOPES + [id(node)]))
-                [t.freeze() for t in frozen]
+                frozen = current_tables(CURRENT_SCOPES + [id(node)])
+                frozen = [t.freeze() for t in frozen]
                 return Definition(node.operands[1], table, args, frozen)
 
             if method == 'define':
@@ -486,7 +603,8 @@ def evaluate(node):
                 ops = list(map(lambda e: e.value, node.operands[0].operands))
                 TABLES[-1].declare_args(ops)
 
-                frozen = clone(current_tables(CURRENT_SCOPES + [id(node)]))
+                frozen = current_tables(CURRENT_SCOPES + [id(node)])
+                frozen = [t.freeze() for t in frozen]
                 definition = Definition(node.operands[1], table, ops, frozen)
 
                 immediate_scope = CURRENT_SCOPES[-1]
@@ -518,11 +636,15 @@ def execute_method(node):
     definition.table.give_args(args)
     for i in range(len(definition.frozen)):
         FROZEN_TABLES.append(definition.frozen[i])
-    CURRENT_SCOPES.append(definition.table.scope)
-    CALL_STACK.append(clone(definition.table))
+
+    added = definition.table.scope not in CURRENT_SCOPES
+    if added:
+        CURRENT_SCOPES.append(definition.table.scope)
+    CALL_STACK.append(definition.table.freeze())
 
     result = definition.call()
-    CURRENT_SCOPES.pop()
+    if added:
+        CURRENT_SCOPES.pop()
     [FROZEN_TABLES.pop() for _ in range(len(definition.frozen))]
     CALL_STACK.pop()
     definition.table.clean()
@@ -540,4 +662,15 @@ def visit(AST, pc=0):
 def walk(AST):
     global EX
     EX = err.Thrower(err.EXEC, AST.file)
+    if not symbol_declared(CURRENT_SCOPES, '$PRELUDE_LOADING'):
+        main_table = lookup_table(0x0)
+        main_table.bind('$PRELUDE_LOADING', ATOMS[':true'])
+
+        here = os.path.dirname(os.path.abspath(__file__))
+        load_file(here + '/../prelude/prelude.lispy')
+
+        main_table.bind('$PRELUDE_LOADED', ATOMS[':true'])
+
+        if conf.DEBUG: print('\n\nAUTOMATICALLY LOADED PRELUDE\n\n')
+
     return visit(AST)

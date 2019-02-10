@@ -2,22 +2,17 @@ VISUALISED_ABSTRACT_SYNTAX_TREE
 ┃
 ┣━<AST::Node[Call]
 ┃      ┣━caller
-┃      ┃  ┗━<AST::Node[Symbol] (let)>
+┃      ┃  ┗━<AST::Node[Symbol] ('let')>
 ┃      ┗━operands=[
 ┃         <AST::Node[Call]
 ┃            ┣━caller
-┃            ┃  ┗━<AST::Node[Symbol] (a)>
+┃            ┃  ┗━<AST::Node[Symbol] ('a')>
 ┃            ┗━operands=[
-┃               <AST::Node[Uneval] (<AST::Node[Call]
-┃      ┣━caller
-┃      ┃  ┗━<AST::Node[Symbol] (f)>
-┃      ┗━operands=[
-┃         <AST::Node[Numeric] (2)>
-┃        ]>)>
+┃               <AST::Node[Uneval] (<lispy.tree.Call object at 0x7fb136e2cd68>)>
 ┃              ]>
 ┃         <AST::Node[Call]
 ┃            ┣━caller
-┃            ┃  ┗━<AST::Node[Symbol] (b)>
+┃            ┃  ┗━<AST::Node[Symbol] ('b')>
 ┃            ┗━operands=[
 ┃               <AST::Node[Numeric] (2)>
 ┃              ]>
@@ -25,67 +20,67 @@ VISUALISED_ABSTRACT_SYNTAX_TREE
 ┃
 ┣━<AST::Node[Call]
 ┃      ┣━caller
-┃      ┃  ┗━<AST::Node[Symbol] (let)>
+┃      ┃  ┗━<AST::Node[Symbol] ('let')>
 ┃      ┗━operands=[
 ┃         <AST::Node[Call]
 ┃            ┣━caller
-┃            ┃  ┗━<AST::Node[Symbol] (c)>
+┃            ┃  ┗━<AST::Node[Symbol] ('c')>
 ┃            ┗━operands=[
-┃               <AST::Node[Uneval] (<AST::Node[Symbol] (a)>)>
+┃               <AST::Node[Uneval] (<lispy.tree.Symbol object at 0x7fb136e35208>)>
 ┃              ]>
 ┃        ]>
 ┃
 ┣━<AST::Node[Call]
 ┃      ┣━caller
-┃      ┃  ┗━<AST::Node[Symbol] (define)>
+┃      ┃  ┗━<AST::Node[Symbol] ('define')>
 ┃      ┗━operands=[
 ┃         <AST::Node[Call]
 ┃            ┣━caller
-┃            ┃  ┗━<AST::Node[Symbol] (f)>
+┃            ┃  ┗━<AST::Node[Symbol] ('f')>
 ┃            ┗━operands=[
-┃               <AST::Node[Symbol] (x)>
+┃               <AST::Node[Symbol] ('x')>
 ┃              ]>
 ┃         <AST::Node[Call]
 ┃            ┣━caller
-┃            ┃  ┗━<AST::Node[Symbol] (+)>
+┃            ┃  ┗━<AST::Node[Symbol] ('+')>
 ┃            ┗━operands=[
-┃               <AST::Node[Symbol] (x)>
+┃               <AST::Node[Symbol] ('x')>
 ┃               <AST::Node[Numeric] (3)>
 ┃              ]>
 ┃        ]>
 ┃
 ┣━<AST::Node[Call]
 ┃      ┣━caller
-┃      ┃  ┗━<AST::Node[Symbol] (puts)>
+┃      ┃  ┗━<AST::Node[Symbol] ('puts')>
 ┃      ┗━operands=[
-┃         <AST::Node[Symbol] (c)>
+┃         <AST::Node[Symbol] ('c')>
 ┃        ]>
 ┃
 ┣━<AST::Node[Call]
 ┃      ┣━caller
-┃      ┃  ┗━<AST::Node[Symbol] (puts)>
+┃      ┃  ┗━<AST::Node[Symbol] ('puts')>
 ┃      ┗━operands=[
 ┃         <AST::Node[Call]
 ┃            ┣━caller
-┃            ┃  ┗━<AST::Node[Symbol] (eval)>
+┃            ┃  ┗━<AST::Node[Symbol] ('eval')>
 ┃            ┗━operands=[
-┃               <AST::Node[Symbol] (c)>
+┃               <AST::Node[Symbol] ('c')>
 ┃              ]>
 ┃        ]>
 ┃
 ┣━<AST::Node[Call]
 ┃      ┣━caller
-┃      ┃  ┗━<AST::Node[Symbol] (puts)>
+┃      ┃  ┗━<AST::Node[Symbol] ('puts')>
 ┃      ┗━operands=[
 ┃         <AST::Node[Call]
 ┃            ┣━caller
-┃            ┃  ┗━<AST::Node[Symbol] (eval)>
+┃            ┃  ┗━<AST::Node[Symbol] ('eval')>
 ┃            ┗━operands=[
 ┃               <AST::Node[Call]
 ┃               ┣━caller
-┃               ┃  ┗━<AST::Node[Symbol] (eval)>
+┃               ┃  ┗━<AST::Node[Symbol] ('eval')>
 ┃               ┗━operands=[
-┃                  <AST::Node[Symbol] (c)>
+┃                  <AST::Node[Symbol] ('c')>
 ┃                 ]>
 ┃              ]>
 ┃        ]>

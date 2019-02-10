@@ -9,14 +9,15 @@ def exp(raw):
 
 # Identifiers are matched as such:
 #   (Atoms and Symbols are the only identifiers)
-IDENT_STR = r"[_A-Za-z\+\-\=\<\>\*\/\%\?\!][0-9\'a-zA-Z_\-\*\+\=\<\>\/\%\?\!]*"
+SYMS = r"_A-Za-z\+\-\=\<\>\*\/\%\^\&\$\£\#\~\\\¬\,\.\?\!\@"
+IDENT_STR = r"[{syms}][0-9\'{syms}]*".format(syms=SYMS)
                                          # e.g.
 L_PAREN    = exp(r"\A\(")                # '('
 R_PAREN    = exp(r"\A\)")                # ')'
 NIL        = exp(r"\Anil")               # 'nil'
 SYMBOL     = exp(r"\A" + IDENT_STR)      # 'hello-world'
 UNEVAL     = exp(r"\A\'")                # '
-ATOM       = exp(r"\A(\:)" + IDENT_STR)  # ':good-bye'
+ATOM       = exp(r"\A\:[0-9" + IDENT_STR[1:])  # ':good-bye'
 NUMERIC    = exp(r"\A[0-9]+(\.[0-9]+)?([xob][0-9]+)?(e[\+\-]?)?[0-9a-fA-f]*")
 TERMINATOR = exp(r"\A\n")
 STRING     = exp(r"\A([\"'])((\\{2})*|(.*?[^\\](\\{2})*))\1")
@@ -28,8 +29,9 @@ STRING     = exp(r"\A([\"'])((\\{2})*|(.*?[^\\](\\{2})*))\1")
 #                       <Token[SYMBOL]  'a' (1:2)>,
 #                       <Token[NUMERIC] '3' (1:4)>,
 #                       <Token[R_PAREN] ')' (1:5)>
+impl_loc = {'line':'IMPLICIT','column':'IMPLICIT', 'filename':'IMPLICIT'}
 class Token(object):
-    def __init__(self, token_type, string, loc={'line':'IMPLICIT','column':'IMPLICIT'}):
+    def __init__(self, token_type, string, loc=impl_loc):
         self.type = token_type
         self.string = string
         self.location = loc
@@ -123,6 +125,8 @@ class TokenStream(object):
 
 def lex(string, file):
     EX = err.Thrower(err.LEX, file)
+    filename = str(file)
+
     string += EOF
     stream = TokenStream(file)
     i = 0
@@ -137,7 +141,8 @@ def lex(string, file):
         if partial[0] == EOF:
             stream.add(Token('EOF', partial[0], {
                 'line': line,
-                'column': column
+                'column': column,
+                'filename': filename
             }))
             break
 
@@ -154,7 +159,8 @@ def lex(string, file):
         if partial[0] == '(':
             stream.add(Token('L_PAREN', partial[0], {
                 'line': line,
-                'column': column
+                'column': column,
+                'filename': filename
             }))
             i += 1
             column += 1
@@ -164,7 +170,8 @@ def lex(string, file):
         if partial[0] == ')':
             stream.add(Token('R_PAREN', partial[0], {
                 'line': line,
-                'column': column
+                'column': column,
+                'filename': filename
             }))
             i += 1
             column += 1
@@ -174,7 +181,8 @@ def lex(string, file):
         if partial[:3] == 'nil':
             stream.add(Token('NIL', partial[:3], {
                 'line': line,
-                'column': column
+                'column': column,
+                'filename': filename
             }))
             i += 3
             column += 3
@@ -184,7 +192,8 @@ def lex(string, file):
         if partial[0] == "'":
             stream.add(Token('UNEVAL', "'", {
                 'line': line,
-                'column': column
+                'column': column,
+                'filename': filename
             }))
             i += 1
             column += 1
@@ -194,7 +203,7 @@ def lex(string, file):
         if partial[0] == '"':
             contents = ""
             j = 1
-            loc = {'line': line, 'column': column}
+            loc = {'line': line, 'column': column, 'filename': filename}
             while partial[j] != '"':
                 if partial[j+1] == EOF:
                     EX.throw({'line': line, 'column': column},
@@ -225,7 +234,8 @@ def lex(string, file):
         if match:
             stream.add(Token('ATOM', match.group(), {
                 'line': line,
-                'column': column
+                'column': column,
+                'filename': filename
             }))
             span = len(match.group())
             i += span
@@ -237,7 +247,8 @@ def lex(string, file):
         if match:
             stream.add(Token('SYMBOL', match.group(), {
                 'line': line,
-                'column': column
+                'column': column,
+                'filename': filename
             }))
             span = len(match.group())
             i += span
@@ -249,7 +260,8 @@ def lex(string, file):
         if match:
             stream.add(Token('NUMERIC', match.group(), {
                 'line': line,
-                'column': column
+                'column': column,
+                'filename': filename
             }))
             span = len(match.group())
             i += span
@@ -260,11 +272,13 @@ def lex(string, file):
         if partial[0] == "\n":
             stream.add(Token('TERMINATOR', "\n", {
                 'line': line,
-                'column': column - 1
+                'column': column - 1,
+                'filename': filename
             }))
             i += 1
             line += 1
             column = 1
             continue
         i += 1
+
     return stream

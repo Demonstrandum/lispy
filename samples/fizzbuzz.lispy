@@ -1,18 +1,15 @@
-(define (f x)
-  (if (= (% x 3) 0)
-    (if (= (% x 5) 0)
-      "fizzbuzz"
-      "fizz")
-    (string x)))
+(define (fizz x)
+  (if (divisible x 3)
+    (if (divisible x 5)
+      "FizzBuzz"
+      "Fizz")
+    (if (divisible x 5)
+      "Buzz"
+      (string x))))
 
+(let (a (range 1 20)))
 
-(let (a (list)))
+(puts "\nPlain:" a)
+(puts "\nFizz'd:" (map fizz a))
 
-(define (fill ar n m)
-  (unless (< n m)
-    (fill (push m ar) n (+ m 1))
-    ar))
-
-
-(concat (fill a 100 1) a)
-(puts a)
+(puts)

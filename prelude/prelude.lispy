@@ -1,0 +1,7 @@
+(require :lists)
+(require :numerics)
+
+(let ($VERBOSE :false))
+(if $VERBOSE (puts "prelude loaded"))
+
+(let ($PRELUDE_LOADED :true))

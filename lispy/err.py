@@ -6,14 +6,14 @@ EXEC  = 'Execution'
 
 def Error(err_type, loc, string, file):
     lines = []
-    with open(file, 'r', newline=None) as f:
+    with open(loc['filename'], 'r', newline=None) as f:
         lines = f.read()
     lines += '\0'
     lines = lines.split('\n')
 
     snip = lines[loc['line'] - 1]
     snippet = '\n`{file}\' at:      {line}| {snip}\n'.format(
-        file = file,
+        file = loc['filename'],
         line = loc['line'],
         snip = snip
     )
@@ -24,7 +24,7 @@ def Error(err_type, loc, string, file):
     snippet += (' ' * (len(snippet) - len(snip) + loc['column'] - 3)) + ('^' * span)
     message = '[!!] - {kind} Error at ({line}:{col}) in file `{file}\':\n\t>>> {msg}'.format(
         kind = err_type,
-        file = file,
+        file = loc['filename'],
         line = loc['line'], col = loc['column'],
         msg  = '\n\t  '.join((string + ['.', ''][string[-1] in ['.', '!', '?']]).split('\n'))
     )

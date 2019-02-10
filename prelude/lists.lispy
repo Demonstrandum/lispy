@@ -1,0 +1,19 @@
+(define (empty? l) (= (size l) 0))
+
+(define (first l) (index    0  l))
+(define (last  l) (index (- 1) l))
+
+;; Note for future: When/if I decide to implement proper macros,
+;;   remember that a lot of these would be better off as macros.
+
+(define (fill l n m)
+  (unless (< m n)
+    (fill (push n l) (+ n 1) m)
+    l))
+
+(define (range n m) (fill '() n m))
+
+(define (map f l)
+  (unless (empty? l)
+    (concat (list (f (first l))) (map f (shift l)))
+    '()))
