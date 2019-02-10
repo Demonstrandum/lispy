@@ -1,0 +1,26 @@
+(define (two-liner a) (do
+  (let (b (+ a 3)))
+  (yield (* b 2))))
+
+(puts (two-liner 0))
+
+;; Many yield statements can exist,
+;;  although not always useful.
+(define (useless a) (do
+  (let (b (+ a 3)))
+  (yield (* b 2))
+  (let (c 5))     ;; We'll never reach here because
+  (yield c)))     ;;  we already yielded a result...
+
+(puts (useless 0) "")
+
+
+(define (closest100 n) (do
+  (if (>= n 50)
+    (yield 100))
+  (yield 0)))     ;; Since we're using a yield statement,
+                  ;;   there's no need for the `else' part
+                  ;;   of the if-statement to exist.
+
+(puts (closest100 53))
+(puts (closest100 46))

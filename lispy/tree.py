@@ -60,7 +60,8 @@ class Data(Node):
 
 
 # Declare children classes
-class Define(Operator):
+
+class Yield(Data):
     pass
 
 class Call(Operator):

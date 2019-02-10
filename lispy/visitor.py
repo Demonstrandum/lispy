@@ -221,6 +221,8 @@ def evaluate(node):
         print("\nCall Tables:      [{}]".format(', '.join(map(str, CALL_STACK))))
         print("\nFrozen Tables:    [{}]".format(', '.join(map(str, FROZEN_TABLES))))
 
+    if node.type is tree.Yield:
+        return node  # Doesn't get evaluated per se.
     if node.type is tree.Nil:
         return node  # Doesn't get evaluated per se.
     if node.type is tree.Atom:
@@ -239,11 +241,21 @@ def evaluate(node):
     if node.type is tree.Call:
         if node.value is None:
             EX.throw(node.location,
-                'Cannot make emoty call. Evaluating an\n'+
+                'Cannot make empty call. Evaluating an\n'+
                 'empty list does not make sense.')
         if node.value.type is tree.Symbol:
             method = node.value.value
             if conf.DEBUG: print("Calling symbolic method: ", repr(method))
+
+            if method == 'do':
+                ret = tree.Nil(node.location)
+                for op in node.operands:
+                    e = evaluate(op)
+                    if type(e) is tree.Yield:
+                        ret = evaluate(e.value)
+                        break
+
+                return ret
 
             if method == 'require':
                 files = list(map(evaluate, node.operands))

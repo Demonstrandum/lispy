@@ -50,6 +50,8 @@ def atom(token, stream):
                     'Unexcpected EOF, missing closing parenthesis')
             operands.append(atom(stream.next(), stream))
         stream.next()  # Skip the R_PAREN we just spotted ahead.
+        if caller.value == 'yield':
+            return tree.Yield(operands[0], loc)
         return tree.Call(caller, loc, *operands)
     if token.type == 'NUMERIC':
         return tree.Numeric(numeric(token.string), loc)
