@@ -1,0 +1,7 @@
+(let (add +))
+(puts add)
+
+(puts (add 3 2))
+
+(reduce + 0 (list 1 2 3 4))  ;; Same as 1+2+3+4 = 10
+(puts _) ;; The `_' just points to the last thing that was evaluated

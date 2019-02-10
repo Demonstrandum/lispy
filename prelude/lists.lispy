@@ -3,6 +3,9 @@
 (define (first l) (index    0  l))
 (define (last  l) (index (- 1) l))
 
+(let (head first))
+(define (tail l) (shift l))
+
 ;; Note for future: When/if I decide to implement proper macros,
 ;;   remember that a lot of these would be better off as macros.
 
@@ -15,5 +18,10 @@
 
 (define (map f l)
   (unless (empty? l)
-    (concat (list (f (first l))) (map f (shift l)))
-    '()))
+    (concat (list (f (head l))) (map f (tail l)))
+    (list)))
+
+(define (reduce f acc l)
+  (if (empty? l)
+    acc
+    (reduce f (f acc (head l)) (tail l))))

@@ -7,12 +7,13 @@ from . import config as conf
 
 from functools import reduce
 from copy import copy as clone
+from types import FunctionType as function
 
 import sys, os
 import pickle
 
 EX = None
-CURRENT_LOCATION = None
+CURRENT_LOCATION = {'line': 1, 'column': 1, 'filename': '.'}
 
 class Atomise(object):
     def __init__(self, string):
@@ -33,17 +34,18 @@ class Definition(object):
         return result
 
 class SymbolTable(object):
-    def __init__(self, scope, name = 'subscope'):
+    def __init__(self, scope, name = 'subscope', block=None):
         self.scope = scope
         self.name = name
         self.local = {}
         self.mutables = []
         self.args = []
         self.type = __class__
+        self.block = block
         self.frozen = False
 
     def freeze(self):
-        new = SymbolTable(self.scope, self.name)
+        new = SymbolTable(self.scope, self.name, self.block)
         new.frozen = True
         new.local = clone(self.local)
         new.mutables = self.mutables
@@ -84,7 +86,7 @@ class SymbolTable(object):
             hex(self.scope),
             ['', ' [frozen]'][self.frozen])
 
-TABLES = [SymbolTable(0, '_main')]
+TABLES = [SymbolTable(0, '_main', None)]
 FROZEN_TABLES = []
 CALL_STACK = []
 
@@ -160,15 +162,44 @@ def symbol_declared(current, ident):
 def is_node(node):
     return 'value' in dir(node)
 
+def to_type(node):
+    if node is None:
+        return 'Empty'
+    if type(node) is function:
+        return 'Macro'
+    if type(node) is Definition:
+        return 'Function'
+    if type(node) is Atomise:
+        return 'Atom'
+    if type(node) is str or type(node) is tree.String:
+        return 'String'
+    if type(node) is int or type(node) is float or type(node) is tree.Numeric:
+        return 'Numeric'
+    if type(node) is tree.Symbol:
+        return 'Symbol'
+    if type(node) is tree.Nil:
+        return 'Nil'
+    if type(node) is tree.Uneval:
+        return 'Uneval'
+    if type(node) is tree.Call:
+        return 'Call'
+
 def to_s(node):
     if node is None:
         return ''
+
+    if type(node) is function:
+        return '<macro`{}\'>'.format(
+            node.__name__)
+
+    if type(node) is Definition:
+        return '<definition`{}\' taking{}>'.format(
+            node.table.name, list(map(to_s, node.args)))
+
+    if type(node) is Atomise:
+        return node.name
+
     if not is_node(node):
-        if type(node) is Definition:
-            return '<definition`{}\' taking{}>'.format(
-                node.table.name, list(map(to_s, node.args)))
-        if type(node) is Atomise:
-            return node.name
         return str(node)
 
     if node.type in [tree.Symbol, tree.Atom, tree.Numeric]:
@@ -276,6 +307,7 @@ def _require_macro(node):
         i += 1
     return ATOMS[':true']
 
+
 def _eval_macro(node):
     if len(node.operands) > 1:
         EX.throw(node.location, '`eval\' built-in macro takes exactly one argument')
@@ -283,6 +315,7 @@ def _eval_macro(node):
     if not is_node(inside):
         return inside
     return evaluate(inside.value)
+
 
 def _if_macro(node):
     check = evaluate(node.operands[0])
@@ -293,6 +326,7 @@ def _if_macro(node):
             return evaluate(node.operands[2])
     return tree.Nil(node.location)
 
+
 def _unless_macro(node):
     check = evaluate(node.operands[0])
     if check is ATOMS[':false'] or (not check):
@@ -301,6 +335,7 @@ def _unless_macro(node):
         if len(node.operands) > 2:
             return evaluate(node.operands[2])
     return tree.Nil(node.location)
+
 
 def _list_macro(node):
     # `list` is simply a way of writing '(1 2 3)
@@ -316,6 +351,7 @@ def _list_macro(node):
     return tree.Uneval(
         tree.Call(head, node.location, *tail),
         node.location)
+
 def _size_macro(node):
     if len(node.operands) != 1:
         EX.throw(node.operands[0].location,
@@ -326,6 +362,7 @@ def _size_macro(node):
     if dlist.value.value is None:
         return 0
     return 1 + len(dlist.value.operands)
+
 def _index_macro(node):
     if len(node.operands) != 2:
         EX.throw(node.location,
@@ -365,6 +402,7 @@ def _index_macro(node):
         index = len(dlist) - index
 
     return evaluate(dlist[index])
+
 def _push_macro(node):
     if len(node.operands) < 2:
         EX.throw(node.location,
@@ -382,6 +420,7 @@ def _push_macro(node):
         data.value.operands += elems
 
     return data
+
 def _unshift_macro(node):
     if len(node.operands) < 2:
         EX.throw(node.location,
@@ -433,8 +472,10 @@ def concat(node):
         return tree.Uneval(tree.Call(None, here), here)
 
 
+
 def _concat_macro(node):
     return concat(node)
+
 def _concat_des_macro(node):
     concated = concat(node)
     first = evaluate(node.operands[0])
@@ -481,30 +522,39 @@ def list_destruction(method, node):
     data.value.operands = dlist[1:]
     return data
 
+
 def _pop_macro(node):
     return list_destruction(list.pop, node)
+
 def _shift_macro(node):
     return list_destruction(lambda l: l.pop(0), node)
+
 def _add_macro(node):
     r = sum(map(evaluate, node.operands))
     return r
+
 def _sub_macro(node):
     if len(node.operands) == 1:
         return -evaluate(node.operands[0])
     result = evaluate(node.operands[0]) - sum(map(evaluate, node.operands[1:]))
     return result
+
 def _mul_macro(node):
     r = reduce(lambda a, b: a * b, map(evaluate, node.operands))
     return r
+
 def _div_macro(node):
     r = reduce(lambda a, b: a / b, map(evaluate, node.operands))
     return r
+
 def _mod_macro(node):
     r = reduce(lambda a, b: a % b, map(evaluate, node.operands))
     return r
+
 def _eq_macro(node):
     r = unity(map(evaluate, node.operands))
     return [ATOMS[':false'], ATOMS[':true']][r]
+
 def _lt_macro(node):
     min = evaluate(node.operands[0])
     for op in node.operands[1:]:
@@ -513,6 +563,7 @@ def _lt_macro(node):
             return ATOMS[':false']
         min = after
     return ATOMS[':true']
+
 def _gt_macro(node):
     max = evaluate(node.operands[0])
     for op in node.operands[1:]:
@@ -521,6 +572,7 @@ def _gt_macro(node):
             return ATOMS[':false']
         max = after
     return ATOMS[':true']
+
 def _le_macro(node):
     min = evaluate(node.operands[0])
     for op in node.operands[1:]:
@@ -529,6 +581,7 @@ def _le_macro(node):
             return ATOMS[':false']
         min = after
     return ATOMS[':true']
+
 def _ge_macro(node):
     max = evaluate(node.operands[0])
     for op in node.operands[1:]:
@@ -537,9 +590,11 @@ def _ge_macro(node):
             return ATOMS[':false']
         max = after
     return ATOMS[':true']
+
 def _string_macro(node):
     compositon = lambda x: to_s(evaluate(x))
     return ' '.join(map(compositon, node.operands))
+
 def _out_macro(node):
     compositon = lambda x: to_s(evaluate(x))
     result = ' '.join(map(str, map(compositon, node.operands)))
@@ -548,6 +603,7 @@ def _out_macro(node):
     else:
         sys.stdout.write(result)
     return result
+
 def _puts_macro(node):
     compositon = lambda x: to_s(evaluate(x))
     result = '\n'.join(map(str, map(compositon, node.operands)))
@@ -556,6 +612,7 @@ def _puts_macro(node):
     else:
         print(result)
     return result
+
 def _let_macro(node):
     immediate_scope = CURRENT_SCOPES[-1]
     immediate_table = lookup_table(immediate_scope)
@@ -565,18 +622,20 @@ def _let_macro(node):
         immediate_table.bind(op.value.value, evaluate(op.operands[0]))
     if conf.DEBUG: print('After let, defined variables in current scope, are: ', lookup_table(CURRENT_SCOPES[-1]).local)
     return
+
 def _lambda_macro(node):
-    table = SymbolTable(id(node), '_lambda')
+    table = SymbolTable(id(node), '_lambda', node)
     args = [node.operands[0].value] + node.operands[0].operands
     table.declare_args(list(map(lambda e: e.value, args)))
     TABLES.append(table)
     frozen = current_tables(CURRENT_SCOPES + [id(node)])
     frozen = [t.freeze() for t in frozen]
     return Definition(node.operands[1], table, args, frozen)
+
 def _define_macro(node):
     name = node.operands[0].value.value  # Method name
     if conf.DEBUG: print("At time of definition of: '{}', scopes are: {}".format(name, list(map(str, current_tables(CURRENT_SCOPES)))))
-    table = SymbolTable(id(node), name)
+    table = SymbolTable(id(node), name, node)
     TABLES.append(table)
     ops = list(map(lambda e: e.value, node.operands[0].operands))
     TABLES[-1].declare_args(ops)
@@ -627,18 +686,21 @@ MACROS = {
     'define': _define_macro,
 }
 
+LAST_EVALUATED = tree.Nil(CURRENT_LOCATION)
 
 def evaluate(node):
     global TABLES, CURRENT_SCOPES, FROZEN_TABLES, CALL_STACK
-    global EX, CURRENT_LOCATION, ATOMS
+    global EX, CURRENT_LOCATION, LAST_EVALUATED, ATOMS
     # All tables and scope/call stacks need to be
     # able to be modified by this method.
 
     if not is_node(node):
-        return node  # Anything that isn't an AST node will simply
-                     #   be retuned as itself, as that means it's already
-                     #   an evaluated fundemental datatype attempting to be
-                     #   evaluated with no reason. e.g. (eval 2)...
+        LAST_EVALUATED = node
+        return LAST_EVALUATED
+                    # Anything that isn't an AST node will simply
+                    #   be retuned as itself, as that means it's already
+                    #   an evaluated fundemental datatype attempting to be
+                    #   evaluated with no reason. e.g. (eval 2)...
 
     CURRENT_LOCATION = node.location
     if conf.DEBUG:
@@ -652,22 +714,35 @@ def evaluate(node):
         print("\nFrozen Tables:    [{}]".format(', '.join(map(str, FROZEN_TABLES))))
 
     if node.type is tree.Yield:
-        return node  # Doesn't get evaluated per se.
+        LAST_EVALUATED = node
+        return LAST_EVALUATED  # Doesn't get evaluated per se.
     if node.type is tree.Nil:
-        return node  # Doesn't get evaluated per se.
+        LAST_EVALUATED = node
+        return LAST_EVALUATED  # Doesn't get evaluated per se.
     if node.type is tree.Atom:
         if node.value in ATOMS:
-            return ATOMS[node.value]
+            LAST_EVALUATED = ATOMS[node.value]
+            return LAST_EVALUATED
         ATOMS[node.value] = Atomise(node.value)
-        return ATOMS[node.value]
+        LAST_EVALUATED = ATOMS[node.value]
+        return LAST_EVALUATED
     if node.type is tree.Numeric:
-        return node.value
+        LAST_EVALUATED = node.value
+        return LAST_EVALUATED
     if node.type is tree.Symbol:
-        return search_tables(CURRENT_SCOPES, node.value)
+        if node.value == '_':
+            lookup_table(0x0).bind('_', LAST_EVALUATED, mutable=True)
+        if node.value in MACROS:
+            LAST_EVALUATED = MACROS[node.value]
+            return LAST_EVALUATED
+        LAST_EVALUATED = search_tables(CURRENT_SCOPES, node.value)
+        return LAST_EVALUATED
     if node.type is tree.Uneval:
-        return node  # Doesn't get evaluated per se.
+        LAST_EVALUATED = node
+        return LAST_EVALUATED  # Doesn't get evaluated per se.
     if node.type is tree.String:
-        return node.value
+        LAST_EVALUATED = node.value
+        return LAST_EVALUATED
     if node.type is tree.Call:
         if node.value is None:
             EX.throw(node.location,
@@ -678,24 +753,28 @@ def evaluate(node):
             if conf.DEBUG: print("Calling symbolic method: ", repr(method))
 
             if method in MACROS:
-                return MACROS[method](node)
+                LAST_EVALUATED = MACROS[method](node)
+                return LAST_EVALUATED
 
-            result = execute_method(node)
-            return result
+            LAST_EVALUATED = execute_method(node)
+            return LAST_EVALUATED
 
         else:  # Not a symbol being called...
-            result = execute_method(node)
-            return result
+            LAST_EVALUATED = execute_method(node)
+            return LAST_EVALUATED
 
     raise Exception("Don't know what to do with %s, this is a bug" % str(node))
 
 
 def execute_method(node):
     definition = evaluate(node.value)
+    if type(definition) is function:
+        return definition(node)
+
     if type(definition) is not Definition:
         EX.throw(node.value.location,
             'Cannot make call to to type of `{}\''.format(
-                node.value.name
+                to_type(definition)
             ))
 
     args = list(map(lambda e: evaluate(e), node.operands))
@@ -709,6 +788,7 @@ def execute_method(node):
     CALL_STACK.append(definition.table.freeze())
 
     result = definition.call()
+
     if added:
         CURRENT_SCOPES.pop()
     [FROZEN_TABLES.pop() for _ in range(len(definition.frozen))]
