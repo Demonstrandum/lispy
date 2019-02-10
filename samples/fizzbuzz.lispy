@@ -13,3 +13,18 @@
 (puts "\nFizz'd:" (map fizz a))
 
 (puts)
+
+(define (fizzer n m) (do
+  (unless (<= n m)
+    (yield))
+  (let (s ""))
+  (if (divisible n 3)
+    (concat! s "Fizz"))
+  (if (divisible n 5)
+    (concat! s "Buzz"))
+  (if (= s "")
+    (concat! s (string n)))
+  (puts s)
+  (fizzer (+ n 1) m)))
+
+(fizzer 1 15)

@@ -1,3 +1,6 @@
+# serialised trees
+serialised_trees/
+
 # python stuff
 __pycache__/
 

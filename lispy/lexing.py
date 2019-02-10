@@ -35,7 +35,7 @@ class Token(object):
         self.type = token_type
         self.string = string
         self.location = loc
-        self.location['span'] = len(string)
+        self.location['span'] = len(string) + [0, 2][self.type == 'STRING']
 
     def __str__(self):
         return "<Token({}) '{}'>".format(

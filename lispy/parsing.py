@@ -51,6 +51,8 @@ def atom(token, stream):
             operands.append(atom(stream.next(), stream))
         stream.next()  # Skip the R_PAREN we just spotted ahead.
         if caller.value == 'yield':
+            if len(operands) == 0:
+                operands.append(tree.Nil(loc))
             return tree.Yield(operands[0], loc)
         return tree.Call(caller, loc, *operands)
     if token.type == 'NUMERIC':
