@@ -5,3 +5,17 @@
 
 (reduce + 0 (list 1 2 3 4))  ;; Same as 1+2+3+4 = 10
 (puts _) ;; The `_' just points to the last thing that was evaluated
+
+(puts)
+
+;; Suports differnt types
+(puts (+ "One" "-" "Mississippi"))
+
+;; Partial harmonic sum:
+; H_n = 1/1 + 1/2 + 1/3 + 1/4 + ... + 1/n
+
+(define (H n)
+  (reduce + 1 (map (lambda (m) (/ 1 m)) (range 2 n))))
+
+(let (up 20))
+(out up "th Harmonic number = " (H up) "\n")

@@ -530,8 +530,17 @@ def _shift_macro(node):
     return list_destruction(lambda l: l.pop(0), node)
 
 def _add_macro(node):
-    r = sum(map(evaluate, node.operands))
-    return r
+    args = list(map(evaluate, node.operands))
+    if not unity(map(to_type, args)):
+        EX.throw(node.value.location,
+            '`+` built-in macro requires all arguments to be of the same type.')
+    if type(args[0]) is str:
+        return ''.join(args)
+    elif isinstance(args[0], (int, float)):
+        return sum(args)
+    EX.throw(node.value.location,
+        'Unrecognised argument type {} for `+` macro'.format(
+            to_type(args[0])))
 
 def _sub_macro(node):
     if len(node.operands) == 1:
@@ -597,7 +606,7 @@ def _string_macro(node):
 
 def _out_macro(node):
     compositon = lambda x: to_s(evaluate(x))
-    result = ' '.join(map(str, map(compositon, node.operands)))
+    result = ''.join(map(str, map(compositon, node.operands)))
     if conf.DEBUG:
         print('[out] --- <STDOUT>: `' + result + "'")
     else:
