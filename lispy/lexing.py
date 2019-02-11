@@ -1,6 +1,7 @@
 from . import err
 import re, ast
 
+import copy
 
 EOF = '\0'
 
@@ -9,7 +10,7 @@ def exp(raw):
 
 # Identifiers are matched as such:
 #   (Atoms and Symbols are the only identifiers)
-SYMS = r"_A-Za-z\+\-\=\<\>\*\/\%\^\&\$\£\#\~\\\¬\,\.\?\!\@"
+SYMS = r"_A-Za-z\+\-\=\<\>\*\/\%\^\&\$\£\#\~\`\|\\\¬\,\.\?\!\@"
 IDENT_STR = r"[{syms}][0-9\'{syms}]*".format(syms=SYMS)
                                          # e.g.
 L_PAREN    = exp(r"\A\(")                # '('
@@ -122,6 +123,42 @@ class TokenStream(object):
                 repr(s.string)
             )
         return '\n'.join(map(form, self.tokens))
+
+def paren_balancer(stream):
+    stream = copy.copy(stream)
+    stack = []
+    balanced = True
+    location = None
+
+    while stream.current() != EOF_TOKEN:
+        location = stream.current().location
+        if stream.current().type == 'L_PAREN':
+            stack.append(0)
+        elif stream.current().type == 'R_PAREN':
+            if len(stack) == 0:
+                balanced = False
+                break
+            else:
+                stack.pop()
+
+        stream.next()
+
+    opens = 0
+    close = 0
+    for t in stream.tokens:
+        if t.type == 'L_PAREN': opens += 1
+        if t.type == 'R_PAREN': close += 1
+
+    message = ('Unbalanced amount of parentheses,\n'
+        + 'consider removing {} of them...'.format(close - opens))
+    if len(stack) != 0:
+        location = stream.tokens[-2].location
+        message = 'Missing {} closing parentheses...'.format(len(stack))
+    return {
+        'balanced': balanced and len(stack) == 0,
+        'location': location,
+        'message': message
+    }
 
 def lex(string, file):
     EX = err.Thrower(err.LEX, file)
@@ -280,5 +317,10 @@ def lex(string, file):
             column = 1
             continue
         i += 1
+
+    # Check we have a balanced amount of L_PARENS to R_PARENS
+    balancer = paren_balancer(stream)
+    if not balancer['balanced']:
+        EX.throw(balancer['location'], balancer['message'])
 
     return stream

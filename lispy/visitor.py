@@ -171,9 +171,9 @@ def to_type(node):
         return 'Function'
     if type(node) is Atomise:
         return 'Atom'
-    if type(node) is str or type(node) is tree.String:
+    if isinstance(node, (str, tree.String)):
         return 'String'
-    if type(node) is int or type(node) is float or type(node) is tree.Numeric:
+    if isinstance(node, (int, float, tree.Numeric)):
         return 'Numeric'
     if type(node) is tree.Symbol:
         return 'Symbol'
@@ -258,6 +258,9 @@ def _do_macro(node):
             return evaluate(e.value)
         ret = e
     return ret
+
+def _yield_macro(node):
+    return node
 
 def _require_macro(node):
     files = list(map(evaluate, node.operands))
@@ -529,6 +532,23 @@ def _pop_macro(node):
 def _shift_macro(node):
     return list_destruction(lambda l: l.pop(0), node)
 
+def _composition_macro(node):
+    funcs = list(map(evaluate, node.operands))[::-1]
+    def _composition(n, funcs=funcs):
+        args = list(map(evaluate, n.operands))
+        ret = None
+        for f in funcs:
+            if type(f) is function:
+                fake_call = tree.Call(tree.Symbol(f.__name__, n.location), n.location, *args)
+                ret = f(fake_call)
+            else:
+                ret = execute_method(f, args)
+
+            args = [ret]
+        return ret
+    return _composition
+
+
 def _add_macro(node):
     args = list(map(evaluate, node.operands))
     if not unity(map(to_type, args)):
@@ -542,21 +562,32 @@ def _add_macro(node):
         'Unrecognised argument type {} for `+` macro'.format(
             to_type(args[0])))
 
+def all_numerics(ops):
+    for op in ops:
+        if to_type(evaluate(op)) != 'Numeric':
+            EX.throw(op.location,
+                'All arguments to this macro must\n'
+                + 'be of type `Numeric`!')
+
 def _sub_macro(node):
+    all_numerics(node.operands)
     if len(node.operands) == 1:
         return -evaluate(node.operands[0])
     result = evaluate(node.operands[0]) - sum(map(evaluate, node.operands[1:]))
     return result
 
 def _mul_macro(node):
+    all_numerics(node.operands)
     r = reduce(lambda a, b: a * b, map(evaluate, node.operands))
     return r
 
 def _div_macro(node):
+    all_numerics(node.operands)
     r = reduce(lambda a, b: a / b, map(evaluate, node.operands))
     return r
 
 def _mod_macro(node):
+    all_numerics(node.operands)
     r = reduce(lambda a, b: a % b, map(evaluate, node.operands))
     return r
 
@@ -564,7 +595,41 @@ def _eq_macro(node):
     r = unity(map(evaluate, node.operands))
     return [ATOMS[':false'], ATOMS[':true']][r]
 
+def truthy(node):
+    if type(node) is Atomise and node == ATOMS[':false']:
+        return False
+    return not not node
+
+def internal_bool(bool):
+    return [ATOMS[':false'], ATOMS[':true']][bool]
+
+def _nq_macro(node):
+    return [ATOMS[':true'], ATOMS[':false']][_eq_macro(node) == ATOMS[':true']]
+
+def _ne_macro(node):
+    op = evaluate(node.operands[0])
+    return [ATOMS[':true'], ATOMS[':false']][truthy(op)]
+
+def _and_macro(node):
+    comp = lambda e: truthy(evaluate(e))
+    truths = list(map(comp, node.operands))
+    return internal_bool(all(truths))
+
+def _or_macro(node):
+    comp = lambda e: truthy(evaluate(e))
+    truths = list(map(comp, node.operands))
+    return internal_bool(any(truths))
+
+def _xor_macro(node):
+    comp = lambda e: truthy(evaluate(e))
+    truths = list(map(comp, node.operands))
+    if len(truths) != 2:
+        EX.throw(node.value.location,
+            '`^^` (XOR) built-in macro takes exactly two arguments.')
+    return internal_bool(any(truths) and not all(truths))
+
 def _lt_macro(node):
+    all_numerics(node.operands)
     min = evaluate(node.operands[0])
     for op in node.operands[1:]:
         after = evaluate(op)
@@ -574,6 +639,7 @@ def _lt_macro(node):
     return ATOMS[':true']
 
 def _gt_macro(node):
+    all_numerics(node.operands)
     max = evaluate(node.operands[0])
     for op in node.operands[1:]:
         after = evaluate(op)
@@ -583,6 +649,7 @@ def _gt_macro(node):
     return ATOMS[':true']
 
 def _le_macro(node):
+    all_numerics(node.operands)
     min = evaluate(node.operands[0])
     for op in node.operands[1:]:
         after = evaluate(op)
@@ -592,6 +659,7 @@ def _le_macro(node):
     return ATOMS[':true']
 
 def _ge_macro(node):
+    all_numerics(node.operands)
     max = evaluate(node.operands[0])
     for op in node.operands[1:]:
         after = evaluate(op)
@@ -641,6 +709,14 @@ def _lambda_macro(node):
     frozen = [t.freeze() for t in frozen]
     return Definition(node.operands[1], table, args, frozen)
 
+def _shorthand_macro(node):
+    table = SymbolTable(id(node), '_short_lambda', node)
+    table.declare_args('x')
+    TABLES.append(table)
+    frozen = current_tables(CURRENT_SCOPES + [id(node)])
+    frozen = [t.freeze() for t in frozen]
+    return Definition(node.operands[0], table, ['x'], frozen)
+
 def _define_macro(node):
     name = node.operands[0].value.value  # Method name
     if conf.DEBUG: print("At time of definition of: '{}', scopes are: {}".format(name, list(map(str, current_tables(CURRENT_SCOPES)))))
@@ -660,6 +736,8 @@ def _define_macro(node):
 
 MACROS = {
     'do': _do_macro,
+    'prog': _do_macro,
+    'yield': _yield_macro,
     'require': _require_macro,
     'eval': _eval_macro,
     'if': _if_macro,
@@ -677,29 +755,38 @@ MACROS = {
     'merge!': _concat_des_macro,
     'pop': _pop_macro,
     'shift': _shift_macro,
+    '<>': _composition_macro,
     '+': _add_macro,
     '-': _sub_macro,
     '*': _mul_macro,
     '/': _div_macro,
     '%': _mod_macro,
     '=': _eq_macro,
+    '/=':_nq_macro,
+    '!': _ne_macro,
+    '&&': _and_macro,
+    '||': _or_macro,
+    '^^': _xor_macro,
     '<': _lt_macro,
     '>': _gt_macro,
-    '<=': _le_macro,
-    '>=': _ge_macro,
+    '<=':_le_macro,
+    '>=':_ge_macro,
     'string': _string_macro,
     'out': _out_macro,
     'puts': _puts_macro,
     'let': _let_macro,
     'lambda': _lambda_macro,
+    'λ': _lambda_macro,
+    '->': _shorthand_macro,
     'define': _define_macro,
 }
 
 LAST_EVALUATED = tree.Nil(CURRENT_LOCATION)
+LAST_RETURNED = LAST_EVALUATED
 
 def evaluate(node):
     global TABLES, CURRENT_SCOPES, FROZEN_TABLES, CALL_STACK
-    global EX, CURRENT_LOCATION, LAST_EVALUATED, ATOMS
+    global EX, CURRENT_LOCATION, LAST_EVALUATED, LAST_RETURNED, ATOMS
     # All tables and scope/call stacks need to be
     # able to be modified by this method.
 
@@ -740,7 +827,7 @@ def evaluate(node):
         return LAST_EVALUATED
     if node.type is tree.Symbol:
         if node.value == '_':
-            lookup_table(0x0).bind('_', LAST_EVALUATED, mutable=True)
+            lookup_table(0x0).bind('_', LAST_RETURNED, mutable=True)
         if node.value in MACROS:
             LAST_EVALUATED = MACROS[node.value]
             return LAST_EVALUATED
@@ -775,18 +862,23 @@ def evaluate(node):
     raise Exception("Don't know what to do with %s, this is a bug" % str(node))
 
 
-def execute_method(node):
-    definition = evaluate(node.value)
+def execute_method(node, args=None):
+    global LAST_EVALUATED, LAST_RETURNED
+    definition = node
+    if not isinstance(node, (Definition, function)):
+        definition = evaluate(node.value)
+
+    if args is None:
+        args = list(map(lambda e: evaluate(e), node.operands))
+
     if type(definition) is function:
         return definition(node)
 
     if type(definition) is not Definition:
         EX.throw(node.value.location,
             'Cannot make call to to type of `{}\''.format(
-                to_type(definition)
-            ))
+                to_type(definition)))
 
-    args = list(map(lambda e: evaluate(e), node.operands))
     definition.table.give_args(args)
     for i in range(len(definition.frozen)):
         FROZEN_TABLES.append(definition.frozen[i])
@@ -803,7 +895,10 @@ def execute_method(node):
     [FROZEN_TABLES.pop() for _ in range(len(definition.frozen))]
     CALL_STACK.pop()
     definition.table.clean()
-    return result
+
+    LAST_EVALUATED = result
+    LAST_RETURNED = LAST_EVALUATED
+    return LAST_RETURNED
 
 
 # All evaluation starts here:

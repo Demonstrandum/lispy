@@ -18,5 +18,7 @@
 (let (divide (lambda (a b) (/ a b))))
 (puts (divide 5 9))
 
+(let (add-two (-> (+ x 2))))
+(puts (add-two 3))
 
 (puts (/ 4 3))  ;; Two integers divided will produce a float
