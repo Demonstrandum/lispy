@@ -1,9 +1,9 @@
 (define (fizz x)
-  (if (divisible x 3)
-    (if (divisible x 5)
+  (if (divisible? x 3)
+    (if (divisible? x 5)
       "FizzBuzz"
       "Fizz")
-    (if (divisible x 5)
+    (if (divisible? x 5)
       "Buzz"
       (string x))))
 
@@ -18,9 +18,9 @@
   (unless (<= n m)
     (yield))
   (let (s ""))
-  (if (divisible n 3)
+  (if (divisible? n 3)
     (concat! s "Fizz"))
-  (if (divisible n 5)
+  (if (divisible? n 5)
     (concat! s "Buzz"))
   (if (= s "")
     (concat! s (string n)))

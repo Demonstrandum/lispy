@@ -1,3 +1,4 @@
-(define macro (f a) (+ a 2))
+(let (li (range 1 50)))
+(filter (lambda (a) (divisible? a 5)) li)
 
-(loop (puts 2))
+(puts _)

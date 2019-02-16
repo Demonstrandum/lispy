@@ -6,6 +6,10 @@
 (let (head first))
 (define (tail l) (shift l))
 
+(define (each l cb) (do
+  (times (size l) (-> (cb (index x l))))
+  (yield l)))
+
 (define (reverse l) (do
   (let (reversed (list)))
   (until (empty? l) (do
@@ -29,3 +33,9 @@
   (if (empty? l)
     acc
     (reduce f (f acc (head l)) (tail l))))
+
+(define (filter f l) (do
+  (let (new (list)))
+  (each l (->
+    (if (f x) (push x new))))
+  (yield new)))

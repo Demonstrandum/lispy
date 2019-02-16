@@ -57,7 +57,7 @@ class SymbolTable(object):
         new.args = self.args
         return new
 
-    def push(self, symbol, value, mutable=False):
+    def bind(self, symbol, value, mutable=False):
         global EX
         if symbol in self.local:
             if not (mutable or symbol in self.mutables or symbol[0] == '$'):
@@ -65,7 +65,6 @@ class SymbolTable(object):
                     + "' cannot be mutated.")
                 return EX.throw(CURRENT_LOCATION, s)
         self.local[symbol] = value
-    bind = push
 
     def declare(self, symbol):
         self.local[symbol] = None
@@ -117,16 +116,22 @@ def load_file(name):
     AST = parsing.parse(stream)
     visit(AST)
 
-def lookup_table(scope):
+def last_call():
+    global CALL_STACK
+    if len(CALL_STACK) > 0:
+        return [CALL_STACK[-1]]
+    return []
+
+def lookup_table(scope, mutable=False):
     global TABLES, FROZEN_TABLES, CALL_STACK
-    all_tables = FROZEN_TABLES + TABLES + CALL_STACK
-    return list(filter(lambda e: e.scope == scope, all_tables))[-1]
+    all_tables = FROZEN_TABLES + TABLES + last_call()
+    return list(filter(lambda e: not e.frozen and (e.scope == scope), all_tables))[-1]
 
 def current_tables(current_scopes):
     global TABLES, FROZEN_TABLES, CALL_STACK
     scopes = map(lambda table: table.scope, TABLES)
     tables = filter(lambda e: e.scope in current_scopes, TABLES)
-    return FROZEN_TABLES + list(tables) + CALL_STACK
+    return FROZEN_TABLES + list(tables) + last_call()
 
 def where_symbol(current_scopes, sym):
     tables = current_tables(current_scopes)
@@ -139,7 +144,6 @@ def where_symbol(current_scopes, sym):
 
 # Searches with respect to scoping, starting with children.
 def search_tables(current, ident):
-    global TABLES, FROZEN_TABLES, CALL_STACK
     subtree = None
     tables = current_tables(current)
     if conf.DEBUG:
@@ -166,7 +170,7 @@ search_symbol = search_tables
 def symbol_declared(current, ident):
     global TABLES
     subtree = None
-    tables = FROZEN_TABLES + current_tables(current) + CALL_STACK
+    tables = current_tables(current)
     for table in tables[::-1]:  # Search backwards, from children towards parents
         if ident in list(table.local.keys()):
             return True
@@ -418,7 +422,8 @@ def _index_macro(node):
     #   arguments supplied to the index macro.
     if type(index) != int:
         return EX.throw(node.operands[0].location,
-            'Oridnal index number must be an integer!')
+            'Oridnal index number must be an integer!\n'
+            + 'Was given index of type `{}\'...'.format(to_type(index)))
     check_list(data, node)
     # We are certain we have the correct datatypes supplied...
 
@@ -429,7 +434,7 @@ def _index_macro(node):
     if index >= len(dlist):
         return EX.throw(node.operands[0].location,
             'Index number out of range, tried to access\n'
-            + 'index number: {}, in a list only index from 0 to {}.'.format(
+            + 'index number: {}, in a list only indexed from 0 to {}.'.format(
                 index, len(dlist) - 1
             ))
     if index < 0:
@@ -738,7 +743,7 @@ def _puts_macro(node):
 
 def _let_macro(node):
     immediate_scope = CURRENT_SCOPES[-1]
-    immediate_table = lookup_table(immediate_scope)
+    immediate_table = lookup_table(immediate_scope, mutable=True)
     for op in node.operands:
         if conf.DEBUG: print("let is defining: ", op.value.value)
         if conf.DEBUG: print("while alredy: ", lookup_table(CURRENT_SCOPES[-1]).local, "... exist\n\n")
@@ -960,19 +965,19 @@ def execute_method(node, args=None):
             'Cannot make empty call.')
 
     definition.table.give_args(args)
-    for i in range(len(definition.frozen)):
-        FROZEN_TABLES.append(definition.frozen[i])
+    #for i in range(len(definition.frozen)):
+    #    FROZEN_TABLES.append(definition.frozen[i])
 
-    added = definition.table.scope not in CURRENT_SCOPES
-    if added:
+    added = definition.table.scope == CURRENT_SCOPES[-1]
+    if not added:
         CURRENT_SCOPES.append(definition.table.scope)
     CALL_STACK.append(definition.table.freeze())
 
     result = definition.call()
 
-    if added:
+    if not added:
         CURRENT_SCOPES.pop()
-    [FROZEN_TABLES.pop() for _ in range(len(definition.frozen))]
+    #[FROZEN_TABLES.pop() for _ in range(len(definition.frozen))]
     CALL_STACK.pop()
     definition.table.clean()
 

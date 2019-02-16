@@ -12,3 +12,11 @@
 (define macro (loop b)
   (while :true
     (eval b)))
+
+
+(define (from n m f)
+  (unless (> n m) (do
+    (f n)
+    (from (+ n 1) m f))))
+
+(define (times n f) (from 0 (- n 1) f))
