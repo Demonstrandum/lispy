@@ -6,8 +6,12 @@
 (let (head first))
 (define (tail l) (shift l))
 
-;; Note for future: When/if I decide to implement proper macros,
-;;   remember that a lot of these would be better off as macros.
+(define (reverse l) (do
+  (let (reversed (list)))
+  (until (empty? l) (do
+    (push (last l) reversed)
+    (pop l)))
+  (yield reversed)))
 
 (define (fill l n m)
   (unless (< m n)

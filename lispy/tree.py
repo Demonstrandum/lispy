@@ -5,9 +5,10 @@ class Tree(list):
     def push(self, *arg):
         return self.append(*arg)
     def __str__(self):
-        return '\n'.join(map(
-            lambda e: u'\u2503\n\u2523\u2501' + str(e), self
-        )) + u'\n\u2503'
+        rep = ''
+        for e in self:
+            rep += u'\u2503\n\u2523\u2501' + str(e) +'\n'
+        return rep
 
 
 TAB = ' ' * 3
@@ -21,7 +22,7 @@ class Node(object):
         return "{}<AST::Node[{}] ({})>".format(
             '' if depth == 0 else TAB * 2,
             self.name,
-            repr(self.value)
+            [str, repr][type(self.value) is str](self.value)
         )
 
 class Nil(Node):

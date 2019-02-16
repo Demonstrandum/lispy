@@ -10,7 +10,7 @@ def exp(raw):
 
 # Identifiers are matched as such:
 #   (Atoms and Symbols are the only identifiers)
-SYMS = r"_A-Za-z\+\-\=\<\>\*\/\%\^\&\$\£\#\~\`\|\\\¬\,\.\?\!\@"
+SYMS = r"_a-zA-Zα-ωΑ-Ω\+\-\=\<\>\*\/\%\^\&\$\£\#\~\`\|\\\¬\,\.\?\!\@"
 IDENT_STR = r"[{syms}][0-9\'{syms}]*".format(syms=SYMS)
                                          # e.g.
 L_PAREN    = exp(r"\A\(")                # '('
@@ -30,7 +30,7 @@ STRING     = exp(r"\A([\"'])((\\{2})*|(.*?[^\\](\\{2})*))\1")
 #                       <Token[SYMBOL]  'a' (1:2)>,
 #                       <Token[NUMERIC] '3' (1:4)>,
 #                       <Token[R_PAREN] ')' (1:5)>
-impl_loc = {'line':'IMPLICIT','column':'IMPLICIT', 'filename':'IMPLICIT'}
+impl_loc = {'line':-1,'column':-1, 'filename':'IMPLICIT'}
 class Token(object):
     def __init__(self, token_type, string, loc=impl_loc):
         self.type = token_type
@@ -160,9 +160,11 @@ def paren_balancer(stream):
         'message': message
     }
 
-def lex(string, file):
+def lex(string, file, nofile=False):
     EX = err.Thrower(err.LEX, file)
-    filename = str(file)
+    filename = file
+    if nofile:
+        EX.nofile(string)
 
     string += EOF
     stream = TokenStream(file)

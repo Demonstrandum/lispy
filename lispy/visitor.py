@@ -9,11 +9,15 @@ from functools import reduce
 from copy import copy as clone
 from types import FunctionType as function
 
+try:    import readline
+except: pass
+
 import sys, os
 import pickle
 
 EX = None
 CURRENT_LOCATION = {'line': 1, 'column': 1, 'filename': '.'}
+LOADED_FILES = []
 
 class Atomise(object):
     def __init__(self, string):
@@ -32,6 +36,7 @@ class Definition(object):
         result = evaluate(self.tree)
         self.table.clean()
         return result
+
 
 class SymbolTable(object):
     def __init__(self, scope, name = 'subscope', block=None):
@@ -58,7 +63,7 @@ class SymbolTable(object):
             if not (mutable or symbol in self.mutables or symbol[0] == '$'):
                 s = (('Symbol bindings are immutable, symbol: `%s' % symbol)
                     + "' cannot be mutated.")
-                EX.throw(CURRENT_LOCATION, s)
+                return EX.throw(CURRENT_LOCATION, s)
         self.local[symbol] = value
     bind = push
 
@@ -73,7 +78,7 @@ class SymbolTable(object):
         if len(self.args) != len(args):
             s = 'Wrong number of arguments to `{}\',\nexpected: {}, got {}.'.format(
                 self.name, len(self.args), len(args))
-            EX.throw(CURRENT_LOCATION, s)
+            return EX.throw(CURRENT_LOCATION, s)
         for i in range(len(args)):
             self.local[self.args[i]] = args[i]
 
@@ -97,6 +102,14 @@ def unity(l):
     return all(e == l[0] for e in l)
 
 def load_file(name):
+    abspath = os.path.abspath(name)
+    if abspath in LOADED_FILES:
+        EX.warn(CURRENT_LOCATION,
+            ('File at absolute location: `{}\'\n'
+            + 'has already been loaded/required.\n'
+            + 'This will almost certainly cause'
+            + 'immutability errors...').format(abspath))
+    LOADED_FILES.append(abspath)
     PROGRAM_STRING = None
     with open(name, 'r') as file:
         PROGRAM_STRING = file.read()
@@ -120,7 +133,7 @@ def where_symbol(current_scopes, sym):
     for t in tables[::-1]:
         if sym in t.local:
             return t
-    EX.throw(CURRENT_LOCATION,
+    return EX.throw(CURRENT_LOCATION,
         'Symbol `{}\' does not exist in the current scope.'.format(
             sym))
 
@@ -144,7 +157,7 @@ def search_tables(current, ident):
             + 'Check if symbol is in scope, or has been defined').format(
             ident, current_tables(current)[-1]
         )
-        EX.throw(CURRENT_LOCATION, s)
+        return EX.throw(CURRENT_LOCATION, s)
     if conf.DEBUG: print("[!!] - Finished symbol search.\n\n")
     return subtree
 
@@ -189,12 +202,13 @@ def to_s(node):
         return ''
 
     if type(node) is function:
-        return '<macro`{}\'>'.format(
+        return '<internal`{}\'>'.format(
             node.__name__)
 
     if type(node) is Definition:
-        return '<definition`{}\' taking{}>'.format(
-            node.table.name, list(map(to_s, node.args)))
+        return '<definition`{}\' taking{}\n  {}>'.format(
+            node.table.name, list(map(to_s, node.args)),
+            '\n  '.join(to_s(node.tree).strip().split('\n')))
 
     if type(node) is Atomise:
         return node.name
@@ -203,6 +217,7 @@ def to_s(node):
         return str(node)
 
     if node.type in [tree.Symbol, tree.Atom, tree.Numeric]:
+
         return str(node.value)
 
     if node.type == tree.Nil:
@@ -212,30 +227,47 @@ def to_s(node):
         return '\'' + to_s(node.value)
 
     if node.type == tree.String:
-        return '"{}"'.format(node.value)
+        return node.value
+
+    if node.type == tree.Yield:
+        return '(yield ' + to_s(node.value) + ')'
 
     if node.type == tree.Call:
         operands = ' '.join(map(to_s, node.operands))
         operands = ['', ' '][len(operands) > 0] + operands
-        return '(' + to_s(node.value) + operands + ')'
+        return '(' + to_s(node.value) + operands + ')\n'
 
     return 'UNMAPED_DATATYPE[{}]'.format(node.name)
                                # Really all datatypes should have their
                                #   own return value, but just in case
                                #   I forgot anythin, we'll return this.
 
+def unquote(node):
+    s = None
+    if type(node) is str:
+        s = repr(node)
+    elif type(node) is tree.String:
+        s = repr(node.value)
+
+    if s is not None:
+        return '"' + s[1:-1] + '"'
+
+    return to_s(node)
+
 # Function to check if node is a list...
 def check_list(maybe_list, node):
     if not is_node(maybe_list):
         if type(maybe_list) is str:
             return tree.String
-        EX.throw(maybe_list.location,
-            'The list to be indexed must be a list,\n'
+        return EX.throw(node.location,
+            'The argument supplied must be a list,\n'
             + 'i.e. it needs to be unevaluated,\n'
             + 'otherwise that list would become evaluated into\n'
-            + 'something that is not a list anymore...')
+            + 'something that may not be a list anymore...\n\n'
+            + 'You tried to use an element of type `{}\' as a list.'.format(
+                to_type(maybe_list)))
     if maybe_list.value.type != tree.Call:
-        EX.throw(maybe_list.location,
+        return EX.throw(maybe_list.location,
             'Argument for list is not a list,\n'
             + 'make sure that you are supplying an unevaluated\n'
             + 'list to the `index` macro...')
@@ -277,7 +309,7 @@ def _require_macro(node):
             else:
                 if type(f) is int or type(f) is float:
                     t = 'Numeric'
-            EX.throw(node.operands[i].location,
+            return EX.throw(node.operands[i].location,
                 'Can\'t interpret type `{}\' as a name for anything'.format(t))
 
         file_name = None
@@ -288,7 +320,7 @@ def _require_macro(node):
         elif type(f) is tree.Uneval:
             file_name = f.value.value
         if file_name is None:
-            EX.throw(node.operands[i].location,
+            return EX.throw(node.operands[i].location,
                 'Was not able to deduce a filename from `require\n`'+
                 + 'argument supplied...')
 
@@ -297,7 +329,7 @@ def _require_macro(node):
         if not os.path.isfile(file_name):
             file_name = file_name + '.lispy'
             if not os.path.isfile(file_name):
-                EX.throw(node.operands[i].location,
+                return EX.throw(node.operands[i].location,
                     'Cannot find file `{s}\' or `{s}.lispy\''.format(
                         s=file_name
                     ))
@@ -313,10 +345,17 @@ def _require_macro(node):
 
 def _eval_macro(node):
     if len(node.operands) > 1:
-        EX.throw(node.location, '`eval\' built-in macro takes exactly one argument')
+        return EX.throw(node.location, '`eval\' built-in macro takes exactly one argument')
     inside = evaluate(node.operands[0])
+    if type(inside) is str:
+        inside += '\n'
+        stream = lexing.lex(inside, node.location['filename'], nofile=True)
+        syntax_tree = parsing.parse(stream, string=inside)
+        return visit(syntax_tree, string=inside)
     if not is_node(inside):
         return inside
+    if inside.type is tree.Call:
+        return execute_method(inside)
     return evaluate(inside.value)
 
 
@@ -357,7 +396,7 @@ def _list_macro(node):
 
 def _size_macro(node):
     if len(node.operands) != 1:
-        EX.throw(node.operands[0].location,
+        return EX.throw(node.operands[0].location,
             '`size` built-in macro takes exactly one list argument')
     dlist = evaluate(node.operands[0])
     check_list(dlist, node)
@@ -368,7 +407,7 @@ def _size_macro(node):
 
 def _index_macro(node):
     if len(node.operands) != 2:
-        EX.throw(node.location,
+        return EX.throw(node.location,
             '`index` built-in macro takes exactly two arguments,\n'
             + 'first needs to be a numeric integer index and\n'
             + 'second an unevaluated list to be indexed.')
@@ -378,17 +417,17 @@ def _index_macro(node):
     # We must be absolutely certian we have the correct type of
     #   arguments supplied to the index macro.
     if type(index) != int:
-        EX.throw(node.operands[0].location,
+        return EX.throw(node.operands[0].location,
             'Oridnal index number must be an integer!')
     check_list(data, node)
     # We are certain we have the correct datatypes supplied...
 
     dlist = [data.value.value] + data.value.operands
     if data.value.value is None:
-        EX.throw(node.operands[0].location,
+        return EX.throw(node.operands[0].location,
             'Cannot index empty list.')
     if index >= len(dlist):
-        EX.throw(node.operands[0].location,
+        return EX.throw(node.operands[0].location,
             'Index number out of range, tried to access\n'
             + 'index number: {}, in a list only index from 0 to {}.'.format(
                 index, len(dlist) - 1
@@ -408,7 +447,7 @@ def _index_macro(node):
 
 def _push_macro(node):
     if len(node.operands) < 2:
-        EX.throw(node.location,
+        return EX.throw(node.location,
             '`push` built-in macro needs at least\n'
             + 'two arguments.')
     elems = list(map(evaluate, node.operands[:-1]))
@@ -426,7 +465,7 @@ def _push_macro(node):
 
 def _unshift_macro(node):
     if len(node.operands) < 2:
-        EX.throw(node.location,
+        return EX.throw(node.location,
             '`unshift` built-in macro needs at least\n'
             + 'two arguments.')
     elems = list(map(evaluate, node.operands[:-1]))[::-1]
@@ -448,7 +487,7 @@ def _unshift_macro(node):
 # Helper method
 def concat(node):
     if len(node.operands) < 2:
-        EX.throw(node.value.location,
+        return EX.throw(node.value.location,
             '`concat` must take two or more lists (x)or strings')
     dlists = list(map(evaluate, node.operands))
     types = []
@@ -456,7 +495,7 @@ def concat(node):
         types.append(check_list(l, node))
 
     if not unity(types):
-        EX.throw(node.value.location,
+        return EX.throw(node.value.location,
             'Tried concating two or more items of unequal type!\n'
             + 'All arguments supplied need to be of the same type.')
 
@@ -502,7 +541,7 @@ def list_destruction(method, node):
     else:
         amount = first_arg
         if type(amount) is not int:
-            EX.throw(node.operands[0].location,
+            return EX.throw(node.operands[0].location,
                 'First argument supplied must be a list,\n'
                 + 'or a CARDINAL INTEGER, specifying how many\n'
                 + 'items are to be popped off the list.')
@@ -533,18 +572,16 @@ def _shift_macro(node):
     return list_destruction(lambda l: l.pop(0), node)
 
 def _composition_macro(node):
-    funcs = list(map(evaluate, node.operands))[::-1]
-    def _composition(n, funcs=funcs):
+    def _composition(n, super=node):
+        funcs = list(map(evaluate, super.operands))[::-1]
         args = list(map(evaluate, n.operands))
         ret = None
+        i = len(funcs) - 1
         for f in funcs:
-            if type(f) is function:
-                fake_call = tree.Call(tree.Symbol(f.__name__, n.location), n.location, *args)
-                ret = f(fake_call)
-            else:
-                ret = execute_method(f, args)
-
+            fake_call = tree.Call(super.operands[i], n.location, *args)
+            ret = evaluate(fake_call)
             args = [ret]
+            i -= 1
         return ret
     return _composition
 
@@ -552,20 +589,20 @@ def _composition_macro(node):
 def _add_macro(node):
     args = list(map(evaluate, node.operands))
     if not unity(map(to_type, args)):
-        EX.throw(node.value.location,
+        return EX.throw(node.value.location,
             '`+` built-in macro requires all arguments to be of the same type.')
     if type(args[0]) is str:
         return ''.join(args)
     elif isinstance(args[0], (int, float)):
         return sum(args)
-    EX.throw(node.value.location,
+    return EX.throw(node.value.location,
         'Unrecognised argument type {} for `+` macro'.format(
             to_type(args[0])))
 
 def all_numerics(ops):
     for op in ops:
         if to_type(evaluate(op)) != 'Numeric':
-            EX.throw(op.location,
+            return EX.throw(op.location,
                 'All arguments to this macro must\n'
                 + 'be of type `Numeric`!')
 
@@ -624,7 +661,7 @@ def _xor_macro(node):
     comp = lambda e: truthy(evaluate(e))
     truths = list(map(comp, node.operands))
     if len(truths) != 2:
-        EX.throw(node.value.location,
+        return EX.throw(node.value.location,
             '`^^` (XOR) built-in macro takes exactly two arguments.')
     return internal_bool(any(truths) and not all(truths))
 
@@ -672,6 +709,10 @@ def _string_macro(node):
     compositon = lambda x: to_s(evaluate(x))
     return ' '.join(map(compositon, node.operands))
 
+def _repr_macro(node):
+    compositon = lambda x: unquote(evaluate(x))
+    return ' '.join(map(compositon, node.operands))
+
 def _out_macro(node):
     compositon = lambda x: to_s(evaluate(x))
     result = ''.join(map(str, map(compositon, node.operands)))
@@ -680,6 +721,11 @@ def _out_macro(node):
     else:
         sys.stdout.write(result)
     return result
+
+def _read_macro(node):
+    if len(node.operands) != 0:
+        return input(to_s(evaluate(node.operands[0])))
+    return input()
 
 def _puts_macro(node):
     compositon = lambda x: to_s(evaluate(x))
@@ -718,19 +764,36 @@ def _shorthand_macro(node):
     return Definition(node.operands[0], table, ['x'], frozen)
 
 def _define_macro(node):
-    name = node.operands[0].value.value  # Method name
-    if conf.DEBUG: print("At time of definition of: '{}', scopes are: {}".format(name, list(map(str, current_tables(CURRENT_SCOPES)))))
-    table = SymbolTable(id(node), name, node)
-    TABLES.append(table)
-    ops = list(map(lambda e: e.value, node.operands[0].operands))
-    TABLES[-1].declare_args(ops)
+    definition = None
 
-    frozen = current_tables(CURRENT_SCOPES + [id(node)])
-    frozen = [t.freeze() for t in frozen]
-    definition = Definition(node.operands[1], table, ops, frozen)
+    def_types = ['function', 'variadic']
+    def_type = node.operands[0]
 
-    immediate_scope = CURRENT_SCOPES[-1]
-    lookup_table(immediate_scope).bind(name, definition)
+    if type(def_type) is tree.Call or def_type.value == 'function':
+        name = None
+        arg_list = None
+        body = None
+
+        if type(def_type) is tree.Call:
+            name = def_type.value.value
+            arg_list = def_type.operands
+            body = node.operands[1]
+        else:
+            name = node.operands[1].value.value
+            arg_list = node.operands[1].operands
+            body = node.operands[2]
+
+        table = SymbolTable(id(node), name, node)
+        TABLES.append(table)
+        ops = list(map(lambda e: e.value, arg_list))
+        TABLES[-1].declare_args(ops)
+
+        frozen = current_tables(CURRENT_SCOPES + [id(node)])
+        frozen = [t.freeze() for t in frozen]
+        definition = Definition(body, table, ops, frozen)
+
+        immediate_scope = CURRENT_SCOPES[-1]
+        lookup_table(immediate_scope).bind(name, definition)
 
     return definition
 
@@ -772,7 +835,9 @@ MACROS = {
     '<=':_le_macro,
     '>=':_ge_macro,
     'string': _string_macro,
+    'repr': _repr_macro,
     'out': _out_macro,
+    'read': _read_macro,
     'puts': _puts_macro,
     'let': _let_macro,
     'lambda': _lambda_macro,
@@ -827,7 +892,7 @@ def evaluate(node):
         return LAST_EVALUATED
     if node.type is tree.Symbol:
         if node.value == '_':
-            lookup_table(0x0).bind('_', LAST_RETURNED, mutable=True)
+            return LAST_RETURNED
         if node.value in MACROS:
             LAST_EVALUATED = MACROS[node.value]
             return LAST_EVALUATED
@@ -841,10 +906,10 @@ def evaluate(node):
         return LAST_EVALUATED
     if node.type is tree.Call:
         if node.value is None:
-            EX.throw(node.location,
+            return EX.throw(node.location,
                 'Cannot make empty call. Evaluating an\n'+
                 'empty list does not make sense.')
-        if node.value.type is tree.Symbol:
+        if type(node.value) is tree.Symbol:
             method = node.value.value
             if conf.DEBUG: print("Calling symbolic method: ", repr(method))
 
@@ -861,6 +926,8 @@ def evaluate(node):
 
     raise Exception("Don't know what to do with %s, this is a bug" % str(node))
 
+def notevaluate(e):
+    return e
 
 def execute_method(node, args=None):
     global LAST_EVALUATED, LAST_RETURNED
@@ -868,16 +935,29 @@ def execute_method(node, args=None):
     if not isinstance(node, (Definition, function)):
         definition = evaluate(node.value)
 
-    if args is None:
-        args = list(map(lambda e: evaluate(e), node.operands))
-
     if type(definition) is function:
         return definition(node)
 
+    if args is None:
+        args = list(map(evaluate, node.operands))
+
+    if type(definition) is tree.Nil:
+        return definition
+
     if type(definition) is not Definition:
-        EX.throw(node.value.location,
+        loc = None
+        if is_node(definition):
+            loc = node.value.location
+        else:
+            loc = CURRENT_LOCATION
+
+        return EX.throw(loc,
             'Cannot make call to to type of `{}\''.format(
                 to_type(definition)))
+
+    if definition is None:
+        return EX.throw(CURRENT_LOCATION,
+            'Cannot make empty call.')
 
     definition.table.give_args(args)
     for i in range(len(definition.frozen)):
@@ -902,15 +982,33 @@ def execute_method(node, args=None):
 
 
 # All evaluation starts here:
-def visit(AST, pc=0):
-    if pc >= len(AST):
-        return 0
-
-    evaluate(AST[pc])
-    return visit(AST, pc + 1)
+def visit(AST, pc=0, string=None):
+    AST = parsing.preprocess(AST)
+    global LAST_RETURNED, LAST_EVALUATED
+    if conf.DEBUG: print("\nVisiting (`{}\' branch: {}):\n".format(AST.file, pc), AST, sep="")
+    global EX
+    if string is not None:
+        EX.nofile(string)
+    ret = tree.Nil({'line': 1, 'column': 1, 'filename': AST.file})
+    if len(AST) == 0:
+        return ret
+    try:
+        ret = evaluate(AST[pc])
+        LAST_RETURNED = ret
+        LAST_EVALUATED = LAST_RETURNED
+    except RecursionError:
+        return EX.throw(CURRENT_LOCATION,
+            'Recursion level too deep!\n'
+            + 'You might have an infinite loop somewhere,\n'
+            + 'or your recursing over something too many times.\n\n'
+            + 'python      call-stack depth:  {},\n'.format(conf.RECURSION_LIMIT)
+            + 'interpreter call-stack depth:  {}.'  .format(len(CALL_STACK)))
+    if pc + 1 >= len(AST):
+        return ret
+    return visit(AST, pc + 1, string)
 
 def walk(AST):
-    global EX
+    global EX, LAST_RETURNED, LAST_EVALUATED
     EX = err.Thrower(err.EXEC, AST.file)
     if not symbol_declared(CURRENT_SCOPES, '$PRELUDE_LOADING'):
         main_table = lookup_table(0x0)

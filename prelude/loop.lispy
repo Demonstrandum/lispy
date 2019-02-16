@@ -1,0 +1,14 @@
+(define macro (while c b) (do
+  (define ($_rec_loop)
+    (if (eval c) (do
+      (eval b)
+      ($_rec_loop))))
+  ($_rec_loop)))
+
+(define macro (until c b)
+  (while (eval (unshift ! (list (eval c))))
+    (eval b)))
+
+(define macro (loop b)
+  (while :true
+    (eval b)))

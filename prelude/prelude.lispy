@@ -1,6 +1,8 @@
+(require :loop)
 (require :lists)
 (require :numerics)
-(require :out)
+(require :IO)
+(require :functional)
 
 (let ($VERBOSE :false))
 (if $VERBOSE (puts "prelude loaded"))

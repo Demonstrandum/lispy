@@ -1,0 +1,5 @@
+#!/usr/bin/env python3
+import lispy
+
+lispy.conf.EXIT_ON_ERROR = False
+lispy.run('./repl.lispy')
