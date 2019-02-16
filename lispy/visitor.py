@@ -183,9 +183,9 @@ def to_type(node):
     if node is None:
         return 'Empty'
     if type(node) is function:
-        return 'Macro'
+        return 'Internal'
     if type(node) is Definition:
-        return 'Function'
+        return 'Definition'
     if type(node) is Atomise:
         return 'Atom'
     if isinstance(node, (str, tree.String)):
@@ -756,6 +756,11 @@ def _repr_macro(node):
     compositon = lambda x: unquote(evaluate(x))
     return ' '.join(map(compositon, node.operands))
 
+def _ast_macro(node):
+    if len(node.operands) == 0:
+        return str(tree.Nil(node.location))
+    return str(str(node.operands[0]))
+
 def _out_macro(node):
     compositon = lambda x: to_s(evaluate(x))
     result = ''.join(map(str, map(compositon, node.operands)))
@@ -782,12 +787,25 @@ def _puts_macro(node):
 def _let_macro(node):
     immediate_scope = CURRENT_SCOPES[-1]
     immediate_table = lookup_table(immediate_scope, mutable=True)
+    if len(node.operands) == 0:
+        return tree.Nil(node.location)
+
+    for arg in node.operands:
+        if type(arg) is not tree.Call:
+            return EX.throw(arg.location,
+                '`let` macro used incorrectly. Every argument should be a list.\n'
+                + 'e.g. (let (a 3) (b 4)) -- Here, a=3 and b=4.')
+        if type(arg.value) is not tree.Symbol:
+            return EX.throw(arg.value.location,
+                'Can only bind values to node of type `Symbol\',\n'
+                + 'cannot bind to type of `{}\'...'.format(to_type(arg.value)))
+
     for op in node.operands:
         if conf.DEBUG: print("let is defining: ", op.value.value)
         if conf.DEBUG: print("while alredy: ", lookup_table(CURRENT_SCOPES[-1]).local, "... exist\n\n")
         immediate_table.bind(op.value.value, evaluate(op.operands[0]))
     if conf.DEBUG: print('After let, defined variables in current scope, are: ', lookup_table(CURRENT_SCOPES[-1]).local)
-    return
+    return search_symbol(CURRENT_SCOPES, node.operands[-1].value.value)
 
 def _lambda_macro(node):
     table = SymbolTable(id(node), '_lambda', node)
@@ -877,6 +895,7 @@ MACROS = {
     '>=':_ge_macro,
     'string': _string_macro,
     'repr': _repr_macro,
+    'ast': _ast_macro,
     'out': _out_macro,
     'read': _read_macro,
     'puts': _puts_macro,
