@@ -278,11 +278,32 @@ def check_list(maybe_list, node):
     return tree.Uneval
 
 def name_node(node):
-    base_case = (type(node) is str) or (type(node) is Atomise)
+    base_case = isinstance(node, (str, tree.String, Atomise, tree.Atom))
     if base_case: return base_case
     if type(node) is tree.Uneval and type(node.value) is tree.Symbol:
         return True
     return False
+
+def name_value(node):
+    if not name_node(node):
+        return EX.throw(CURRENT_LOCATION,
+            'Cannot deduce a name from this node,\n'
+            + 'with type of `{}\''.format(to_type(node)))
+
+    s = None
+    if type(node) is str:
+        s = node
+    if type(node) is tree.String:
+        s = node.value
+    if type(node) is Atomise:
+        s = node.name[1:]
+    if type(node) is tree.Atom:
+        s = node.value[1:]
+    if type(node) is tree.Uneval:
+        s = node.value.value
+    s = ':' + s
+    ATOMS[s] = Atomise(s)
+    return ATOMS[s]
 
 CURRENT_SCOPES = [0x0]  # Default scope is main scope (0x0).
 
@@ -362,6 +383,17 @@ def _eval_macro(node):
         return execute_method(inside)
     return evaluate(inside.value)
 
+def _type_macro(node):
+    if len(node.operands) == 0:
+        return EX.throw(node.location,
+            '`type` built-in macro takes exactly one argument.')
+    return name_value(to_type(evaluate(node.operands[0])))
+
+def _name_macro(node):
+    if len(node.operands) == 0:
+        return EX.throw(node.location,
+            '`name` built-in macro takes exactly one argument.')
+    return name_value(evaluate(node.operands[0]))
 
 def _if_macro(node):
     check = evaluate(node.operands[0])
@@ -426,11 +458,17 @@ def _index_macro(node):
             + 'Was given index of type `{}\'...'.format(to_type(index)))
     check_list(data, node)
     # We are certain we have the correct datatypes supplied...
+    dlist = data
+    if not type(data) is str:
+        dlist = [data.value.value] + data.value.operands
+        if data.value.value is None:
+            return EX.throw(node.operands[0].location,
+                'Cannot index empty list.')
 
-    dlist = [data.value.value] + data.value.operands
-    if data.value.value is None:
+    if len(dlist) == 0:
         return EX.throw(node.operands[0].location,
             'Cannot index empty list.')
+
     if index >= len(dlist):
         return EX.throw(node.operands[0].location,
             'Index number out of range, tried to access\n'
@@ -808,6 +846,8 @@ MACROS = {
     'yield': _yield_macro,
     'require': _require_macro,
     'eval': _eval_macro,
+    'type': _type_macro,
+    'name': _name_macro,
     'if': _if_macro,
     'unless': _unless_macro,
     'list': _list_macro,
