@@ -814,13 +814,9 @@ MACROS = {
     'size': _size_macro,
     'index': _index_macro,
     'push': _push_macro,
-    'append': _push_macro,
     'unshift': _unshift_macro,
-    'prepend': _unshift_macro,
     'concat': _concat_macro,
-    'merge': _concat_macro,
     'concat!': _concat_des_macro,
-    'merge!': _concat_des_macro,
     'pop': _pop_macro,
     'shift': _shift_macro,
     '<>': _composition_macro,
@@ -935,16 +931,13 @@ def notevaluate(e):
     return e
 
 def execute_method(node, args=None):
-    global LAST_EVALUATED, LAST_RETURNED
+    global LAST_EVALUATED, LAST_RETURNED, FROZEN_TABLES
     definition = node
     if not isinstance(node, (Definition, function)):
         definition = evaluate(node.value)
 
     if type(definition) is function:
         return definition(node)
-
-    if args is None:
-        args = list(map(evaluate, node.operands))
 
     if type(definition) is tree.Nil:
         return definition
@@ -964,22 +957,25 @@ def execute_method(node, args=None):
         return EX.throw(CURRENT_LOCATION,
             'Cannot make empty call.')
 
+    if args is None:
+        args = list(map(evaluate, node.operands))
+    definition.table.clean()
     definition.table.give_args(args)
-    #for i in range(len(definition.frozen)):
-    #    FROZEN_TABLES.append(definition.frozen[i])
+
+    FROZEN_TABLES = definition.frozen
 
     added = definition.table.scope == CURRENT_SCOPES[-1]
     if not added:
         CURRENT_SCOPES.append(definition.table.scope)
     CALL_STACK.append(definition.table.freeze())
 
+    # Aaaaand then we finally actually male the call...
     result = definition.call()
+    # Back to cleaning up our Symbol tables.
 
     if not added:
         CURRENT_SCOPES.pop()
-    #[FROZEN_TABLES.pop() for _ in range(len(definition.frozen))]
     CALL_STACK.pop()
-    definition.table.clean()
 
     LAST_EVALUATED = result
     LAST_RETURNED = LAST_EVALUATED

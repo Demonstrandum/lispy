@@ -1,3 +1,10 @@
+(define macro (quote expression) expression)
+
+(let (append  push)
+     (prepend unshift)
+     (merge  concat)
+     (merge! concat!))
+
 (define (empty? l) (= (size l) 0))
 
 (define (first l) (index    0  l))

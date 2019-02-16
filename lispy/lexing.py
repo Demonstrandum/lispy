@@ -217,7 +217,7 @@ def lex(string, file, nofile=False):
             continue
 
         # Match Nil token
-        if partial[:3] == 'nil':
+        if partial[:3] == 'nil' and not SYMBOL.match(partial[3]):
             stream.add(Token('NIL', partial[:3], {
                 'line': line,
                 'column': column,

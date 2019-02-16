@@ -31,6 +31,8 @@ class Nil(Node):
         self.value = 'nil'
         self.type = self.__class__
         self.name = str(self.type).split('.')[-1][:-2]
+    def __hash__(self):
+        return hash(self.value)
 
 class Operator(Node):
     def __init__(self, value, loc, *operands):
@@ -78,7 +80,9 @@ class Numeric(Data):
     pass
 
 class Uneval(Data):
-    pass
+    def __hash__(self):
+        return hash(self.value)
 
 class String(Data):
-    pass
+    def __hash__(self):
+        return hash(self.value)

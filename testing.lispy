@@ -1,4 +1,4 @@
-(let (li (range 1 50)))
-(filter (lambda (a) (divisible? a 5)) li)
+(let (l (range 1 50)))
+(filter (lambda (a) (divisible? a 5)) l)
 
 (puts _)

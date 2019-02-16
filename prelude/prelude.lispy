@@ -1,3 +1,4 @@
+(require :dt)
 (require :loop)
 (require :lists)
 (require :numerics)

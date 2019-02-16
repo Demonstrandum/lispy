@@ -1,5 +1,3 @@
 (let (EOF "\0"))
 
-(let (print out))
-
-(define (input msg) (read msg))
+(let (print out) (input read))

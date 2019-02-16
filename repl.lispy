@@ -5,7 +5,7 @@
 ;;   can be very easily done in lisp:
 ;;     It stands for a READ-EVAL-PRINT-LOOP
 ;;
-;; A REPL is implemented very naivly as such:
+;; A REPL is implemented very naively as such:
 ;   (loop (print (eval (read))))
 
 (loop (print "=> " (repr (eval (read "[lispy]> "))) "\n"))
