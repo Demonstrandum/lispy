@@ -4,7 +4,7 @@ from . import tree
 from . import err
 from . import config as conf
 
-import sys, copy, ast
+import sys, copy, ast, re
 
 EOF = '\0'
 
@@ -184,12 +184,15 @@ def parse(stream, string=None):
     if conf.DEBUG: print("Size of AST:", sys.getsizeof(AST))
     return AST
 
+SHORTHAND = None
 
 def atom(token, stream):
+    global SHORTHAND
     if conf.DEBUG: print('Atomic token type: ', token.type)
     loc = token.location
 
     if token.type == 'L_PAREN':
+        SHORTHAND = 0
         caller = None
         if stream.ahead().type != 'R_PAREN':
             caller = atom(stream.next(), stream)
@@ -208,10 +211,17 @@ def atom(token, stream):
             if len(operands) == 0:
                 operands.append(tree.Nil(loc))
             return tree.Yield(operands[0], loc)
-        return tree.Call(caller, loc, *operands)
+        call = tree.Call(caller, loc, *operands)
+        if (caller.type is tree.Symbol
+        and caller.value == '->'):
+            call.shorthand = SHORTHAND
+            SHORTHAND = None
+        return call
     if token.type == 'NUMERIC':
         return tree.Numeric(numeric(token.string, loc), loc)
     if token.type == 'SYMBOL':
+        if SHORTHAND is not None and re.match(r"\%[1-9]+", token.string):
+            SHORTHAND += 1
         return tree.Symbol(token.string, loc)
     if token.type == 'ATOM':
         return tree.Atom(token.string, loc)

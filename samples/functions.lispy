@@ -18,7 +18,7 @@
 (let (divide (λ (a b) (/ a b)))) ;; λ is an alt. name for `lambda'
 (puts (divide 5 9))
 
-(let (add-two (-> (+ x 2))))  ;; Shorthand syntax
+(let (add-two (-> (+ %1 2))))  ;; Shorthand syntax
 (puts (add-two 3))
 
 (apply f '(50 3))  ;; This applies a function f with arguments (2 3)

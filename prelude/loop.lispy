@@ -1,18 +1,13 @@
-(define macro (while c b) (do
-  (define ($_rec_loop)
-    (if (eval c) (do
-      (eval b)
-      ($_rec_loop))))
-  ($_rec_loop)))
+(define macro (while c b)
+  (iterate (do
+    (unless (eval c) break)
+    (eval b))))
 
 (define macro (until c b)
-  (while (eval (unshift ! (list (eval c))))
-    (eval b)))
+  (while (! (eval c)) (eval b)))
 
 (define macro (loop b)
-  (while :true
-    (eval b)))
-
+  (iterate (eval b)))
 
 (define (from n m f)
   (unless (> n m) (do

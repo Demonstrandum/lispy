@@ -1,3 +1,4 @@
+(require :destructive)
 (require :dt)
 (require :loop)
 (require :lists)

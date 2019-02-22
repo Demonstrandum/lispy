@@ -1,4 +1,9 @@
-(let (l (range 1 50)))
-(filter (lambda (a) (divisible? a 5)) l)
+(let (i 0))
 
-(puts _)
+(until (= i 10) (do
+  (puts i)
+  (mutate (i (+ i 1)))))
+
+(-> (+ %1 %2 %3 %4))
+(_ 5 5 5 5)
+(puts (string "5*4 =" _))

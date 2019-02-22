@@ -41,6 +41,7 @@ class Operator(Node):
         self.value = value
         self.type = self.__class__
         self.name = str(self.type).split('.')[-1][:-2]
+        self.shorthand = None
     def __str__(self, depth=0):  # Don't even try to understand this.
         operands = '\n'.join(
             map(lambda e: (u'\u2503{}'.format(TAB * ([1, 2][depth>0] + depth) + (e.__str__(depth + 1) if issubclass(type(e), Node) else str(e)))), self.operands)

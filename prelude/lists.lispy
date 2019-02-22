@@ -14,8 +14,15 @@
 (define (tail l) (shift l))
 
 (define (each l cb) (do
-  (times (size l) (-> (cb (index x l))))
+  (times (size l) (-> (cb (index %1 l))))
   (yield l)))
+
+(define macro (for sym in l body) (do
+  (let (i 0) (array (eval l)))
+  (while (< i (size array)) (do
+    (mutate (sym (index i array)))
+    (eval body)
+    (+1 i)))))
 
 (define (reverse l) (do
   (let (reversed (list)))
@@ -37,12 +44,12 @@
     (list)))
 
 (define (reduce f acc l)
-  (if (empty? l)
-    acc
-    (reduce f (f acc (head l)) (tail l))))
+  (unless (empty? l)
+    (reduce f (f acc (head l)) (tail l))
+    acc))
 
 (define (filter f l) (do
   (let (new (list)))
   (each l (->
-    (if (f x) (push x new))))
+    (if (f %1) (push %1 new))))
   (yield new)))

@@ -69,7 +69,7 @@ class SymbolTable(object):
     def declare(self, symbol):
         self.local[symbol] = None
 
-    def declare_args(self, args):
+    def declare_args(self, *args):
         self.args = args
 
     def give_args(self, args):
@@ -278,7 +278,7 @@ def check_list(maybe_list, node):
     return tree.Uneval
 
 def name_node(node):
-    base_case = isinstance(node, (str, tree.String, Atomise, tree.Atom))
+    base_case = isinstance(node, (str, tree.String, Atomise, tree.Atom, tree.Symbol))
     if base_case: return base_case
     if type(node) is tree.Uneval and type(node.value) is tree.Symbol:
         return True
@@ -299,6 +299,8 @@ def name_value(node):
         s = node.name[1:]
     if type(node) is tree.Atom:
         s = node.value[1:]
+    if type(node) is tree.Symbol:
+        s = node.value
     if type(node) is tree.Uneval:
         s = node.value.value
     s = ':' + s
@@ -313,6 +315,9 @@ def _do_macro(node):
         e = evaluate(op)
         if type(e) is tree.Yield:
             return evaluate(e.value)
+        if type(e) is tree.Symbol:
+            if e.value in ['break', 'next']:
+                return e
         ret = e
     return ret
 
@@ -487,6 +492,25 @@ def _index_macro(node):
         index = len(dlist) - index
 
     return evaluate(dlist[index])
+
+def _iterate_macro(node):
+    global LAST_EVALUATED, LAST_RETURNED
+    if len(node.operands) != 1:
+        return EX.throw(node.value.location,
+            '`iterate` built-in macro takes exactly one argument.')
+
+    last = LAST_EVALUATED
+    while True:
+        e = evaluate(node.operands[0])
+        if type(e) is tree.Symbol:
+            if e.value == 'break':
+                break
+            if e.value == 'next':
+                continue
+        last = e
+
+    LAST_RETURNED = last
+    return LAST_RETURNED
 
 def _push_macro(node):
     if len(node.operands) < 2:
@@ -784,7 +808,7 @@ def _puts_macro(node):
         print(result)
     return result
 
-def _let_macro(node):
+def _let_macro(node, mutable=False):
     immediate_scope = CURRENT_SCOPES[-1]
     immediate_table = lookup_table(immediate_scope, mutable=True)
     if len(node.operands) == 0:
@@ -795,22 +819,26 @@ def _let_macro(node):
             return EX.throw(arg.location,
                 '`let` macro used incorrectly. Every argument should be a list.\n'
                 + 'e.g. (let (a 3) (b 4)) -- Here, a=3 and b=4.')
-        if type(arg.value) is not tree.Symbol:
+        if not name_node(arg.value):
             return EX.throw(arg.value.location,
-                'Can only bind values to node of type `Symbol\',\n'
+                'Can only bind values nameable nodes,\n'
                 + 'cannot bind to type of `{}\'...'.format(to_type(arg.value)))
 
+    name = LAST_EVALUATED
     for op in node.operands:
         if conf.DEBUG: print("let is defining: ", op.value.value)
         if conf.DEBUG: print("while alredy: ", lookup_table(CURRENT_SCOPES[-1]).local, "... exist\n\n")
-        immediate_table.bind(op.value.value, evaluate(op.operands[0]))
+        name = name_value(op.value).name[1:]
+        immediate_table.bind(name, evaluate(op.operands[0]), mutable)
+        if mutable:
+            immediate_table.mutables.append(name)
     if conf.DEBUG: print('After let, defined variables in current scope, are: ', lookup_table(CURRENT_SCOPES[-1]).local)
-    return search_symbol(CURRENT_SCOPES, node.operands[-1].value.value)
+    return search_symbol(CURRENT_SCOPES, name)
 
 def _lambda_macro(node):
     table = SymbolTable(id(node), '_lambda', node)
     args = [node.operands[0].value] + node.operands[0].operands
-    table.declare_args(list(map(lambda e: e.value, args)))
+    table.declare_args(*list(map(lambda e: e.value, args)))
     TABLES.append(table)
     frozen = current_tables(CURRENT_SCOPES + [id(node)])
     frozen = [t.freeze() for t in frozen]
@@ -818,11 +846,13 @@ def _lambda_macro(node):
 
 def _shorthand_macro(node):
     table = SymbolTable(id(node), '_short_lambda', node)
-    table.declare_args('x')
+
+    args = [('%' + str(i)) for i in range(1, node.shorthand + 1)]
+    table.declare_args(*args)
     TABLES.append(table)
     frozen = current_tables(CURRENT_SCOPES + [id(node)])
     frozen = [t.freeze() for t in frozen]
-    return Definition(node.operands[0], table, ['x'], frozen)
+    return Definition(node.operands[0], table, args, frozen)
 
 def _define_macro(node):
     definition = None
@@ -847,7 +877,7 @@ def _define_macro(node):
         table = SymbolTable(id(node), name, node)
         TABLES.append(table)
         ops = list(map(lambda e: e.value, arg_list))
-        TABLES[-1].declare_args(ops)
+        TABLES[-1].declare_args(*ops)
 
         frozen = current_tables(CURRENT_SCOPES + [id(node)])
         frozen = [t.freeze() for t in frozen]
@@ -871,6 +901,7 @@ MACROS = {
     'list': _list_macro,
     'size': _size_macro,
     'index': _index_macro,
+    'iterate': _iterate_macro,
     'push': _push_macro,
     'unshift': _unshift_macro,
     'concat': _concat_macro,
@@ -900,6 +931,7 @@ MACROS = {
     'read': _read_macro,
     'puts': _puts_macro,
     'let': _let_macro,
+    'mutate': lambda node: _let_macro(node, mutable=True),
     'lambda': _lambda_macro,
     'λ': _lambda_macro,
     '->': _shorthand_macro,
@@ -953,6 +985,8 @@ def evaluate(node):
     if node.type is tree.Symbol:
         if node.value == '_':
             return LAST_RETURNED
+        if node.value in ['break', 'next']:
+            return node
         if node.value in MACROS:
             LAST_EVALUATED = MACROS[node.value]
             return LAST_EVALUATED
