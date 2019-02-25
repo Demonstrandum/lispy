@@ -20,8 +20,12 @@ class c:
     BOLD = '\033[1m'
     UNDERLINE = '\033[4m'
 
+NIL_ERROR = tree.Nil({'line': -1, 'column': -1, 'filename': 'ERROR'})
+
 def Message(message_type):
     def TypeOfMessage(err_type, loc, string, file, prog=None):
+        if conf.RECOVERING_FROM_ERROR:
+            return NIL_ERROR
         lines = ""
         if prog is not None:
             lines = prog + '\0'
@@ -72,7 +76,8 @@ def Message(message_type):
         err_print(where + snippet + '\n' + message + '\n')
 
         if not conf.EXIT_ON_ERROR:
-            return tree.Nil({'line': 'ERROR', 'column': 'ERROR', 'filename': 'ERROR'})
+            conf.RECOVERING_FROM_ERROR = True
+            return NIL_ERROR
         if message_type == 'Error':
             sys.exit(1)
         return 1

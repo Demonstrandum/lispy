@@ -6,3 +6,6 @@ Log:
 			the first R_PAREN closed both.
 	04/01/2019 - Scoping partially impl. and functions now have own scopes and are bound to scopes
 			through symbol tables, bound to the AST nodes object ID.
+	25/02/2019 - Everything seems to be fully functional.  All that's left is
+			perhaps the continuous addition of new features and optimising the
+			interpreter, perhaps even porting it to another language.

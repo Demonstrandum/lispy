@@ -1,5 +1,24 @@
 #!/usr/bin/env python3
+# === Interactive LISPY (ilispy) === #
+#|  This file, will run the REPL file interactively.
+#|  That means it won't exit on errors, and
+#|  gives a shell like feel, with history and such.
 import lispy
-
 lispy.conf.EXIT_ON_ERROR = False
-lispy.run('./repl.lispy')
+
+import signal
+import sys
+
+
+def _(sig, frame):
+    lispy.visitor.EX.throw(lispy.visitor.CURRENT_LOCATION,
+        "Halted execution, due to KILL SIGINT!")
+    sys.exit(0)
+
+signal.signal(signal.SIGINT, _)
+
+try:
+    lispy.run('./repl.lispy')
+except EOFError:
+    print("\n\nCtrl+D --- EOF")
+    print("Bye-bye.")

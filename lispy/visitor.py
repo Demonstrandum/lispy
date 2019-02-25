@@ -7,6 +7,7 @@ from . import config as conf
 
 from functools import reduce
 from copy import copy as clone
+from copy import deepcopy as recursive_clone
 from types import FunctionType as function
 
 try:    import readline
@@ -23,8 +24,8 @@ class Atomise(object):
     def __init__(self, string):
         self.name = string
         self.hash = hash(string)
-    def __eq__(self, other):
-        return self.hash == other.hash
+    def __hash__(self):
+        return self.hash
 
 class Definition(object):
     def __init__(self, branch, table, taking, frozen):
@@ -33,7 +34,7 @@ class Definition(object):
         self.table = table
         self.args = taking
     def call(self):
-        result = evaluate(self.tree)
+        result = evaluate(recursive_clone(self.tree))
         self.table.clean()
         return result
 
@@ -57,7 +58,13 @@ class SymbolTable(object):
         new.args = self.args
         return new
 
+    def check_freeze(self):
+        if self.frozen:
+            raise "Can't modify frozen table, this is a bug."
+        return None
+
     def bind(self, symbol, value, mutable=False):
+        self.check_freeze()
         global EX
         if symbol in self.local:
             if not (mutable or symbol in self.mutables or symbol[0] == '$'):
@@ -67,12 +74,15 @@ class SymbolTable(object):
         self.local[symbol] = value
 
     def declare(self, symbol):
+        self.check_freeze()
         self.local[symbol] = None
 
     def declare_args(self, *args):
+        self.check_freeze()
         self.args = args
 
     def give_args(self, args):
+        self.check_freeze()
         global EX
         if len(self.args) != len(args):
             s = 'Wrong number of arguments to `{}\',\nexpected: {}, got {}.'.format(
@@ -82,6 +92,8 @@ class SymbolTable(object):
             self.local[self.args[i]] = args[i]
 
     def clean(self):
+        self.check_freeze()
+        del self.local
         self.local = {}
 
     def __str__(self):
@@ -89,6 +101,19 @@ class SymbolTable(object):
             self.name,
             hex(self.scope),
             ['', ' [frozen]'][self.frozen])
+
+
+def print_table(table):
+    if table.local == {}:
+        print(str(table), "is empty.")
+        return
+    print("=" * 30)
+    print(str(table), "=>", end='')
+    prefix = '\n\t||  '
+    print(prefix, end='')
+    print(prefix.join(list(map(lambda v: "sym:{} --> {}".format(v, table.local[v]), list(table.local.keys())))))
+    print("=" * 30)
+
 
 TABLES = [SymbolTable(0, '_main', None)]
 FROZEN_TABLES = []
@@ -239,7 +264,7 @@ def to_s(node):
     if node.type == tree.Call:
         operands = ' '.join(map(to_s, node.operands))
         operands = ['', ' '][len(operands) > 0] + operands
-        return '(' + to_s(node.value) + operands + ')\n'
+        return '(' + to_s(node.value) + operands + ')'
 
     return 'UNMAPED_DATATYPE[{}]'.format(node.name)
                                # Really all datatypes should have their
@@ -270,7 +295,7 @@ def check_list(maybe_list, node):
             + 'something that may not be a list anymore...\n\n'
             + 'You tried to use an element of type `{}\' as a list.'.format(
                 to_type(maybe_list)))
-    if maybe_list.value.type != tree.Call:
+    if not is_node(maybe_list.value) or maybe_list.value.type != tree.Call:
         return EX.throw(maybe_list.location,
             'Argument for list is not a list,\n'
             + 'make sure that you are supplying an unevaluated\n'
@@ -387,6 +412,15 @@ def _eval_macro(node):
     if inside.type is tree.Call:
         return execute_method(inside)
     return evaluate(inside.value)
+
+def _scope_macro(node):
+    if type(node.operands[0]) is not tree.Symbol:
+        EX.throw(CURRENT_LOCATION,
+            "Only pure symbols can be given to `scope`.")
+    t = where_symbol(CURRENT_SCOPES, node.operands[0].value)
+    s = str(t)
+    err.err_print(s)
+    return s
 
 def _type_macro(node):
     if len(node.operands) == 0:
@@ -656,7 +690,10 @@ def _composition_macro(node):
 def _add_macro(node):
     args = list(map(evaluate, node.operands))
     if not unity(map(to_type, args)):
-        return EX.throw(node.value.location,
+        loc = CURRENT_LOCATION
+        if is_node(node.value):
+            loc = node.value.location
+        return EX.throw(loc,
             '`+` built-in macro requires all arguments to be of the same type.')
     if type(args[0]) is str:
         return ''.join(args)
@@ -894,6 +931,7 @@ MACROS = {
     'yield': _yield_macro,
     'require': _require_macro,
     'eval': _eval_macro,
+    'scope': _scope_macro, # < Mostly for debugging.
     'type': _type_macro,
     'name': _name_macro,
     'if': _if_macro,
@@ -908,7 +946,7 @@ MACROS = {
     'concat!': _concat_des_macro,
     'pop': _pop_macro,
     'shift': _shift_macro,
-    '<>': _composition_macro,
+    '<>': _composition_macro, # < Neat, isn't it?
     '+': _add_macro,
     '-': _sub_macro,
     '*': _mul_macro,
@@ -919,20 +957,19 @@ MACROS = {
     '!': _ne_macro,
     '&&': _and_macro,
     '||': _or_macro,
-    '^^': _xor_macro,
+    '^^': _xor_macro, # < Not a common one.
     '<': _lt_macro,
     '>': _gt_macro,
     '<=':_le_macro,
     '>=':_ge_macro,
     'string': _string_macro,
     'repr': _repr_macro,
-    'ast': _ast_macro,
+    'ast': _ast_macro, # < Mostly for debugging.
     'out': _out_macro,
     'read': _read_macro,
     'puts': _puts_macro,
     'let': _let_macro,
     'mutate': lambda node: _let_macro(node, mutable=True),
-    'lambda': _lambda_macro,
     'λ': _lambda_macro,
     '->': _shorthand_macro,
     'define': _define_macro,
@@ -946,6 +983,9 @@ def evaluate(node):
     global EX, CURRENT_LOCATION, LAST_EVALUATED, LAST_RETURNED, ATOMS
     # All tables and scope/call stacks need to be
     # able to be modified by this method.
+
+    if conf.RECOVERING_FROM_ERROR:
+        return err.NIL_ERROR
 
     if not is_node(node):
         LAST_EVALUATED = node
@@ -965,6 +1005,11 @@ def evaluate(node):
         print("\nCurrent Scopes:   [{}]".format(', '.join(map(str, CURRENT_SCOPES))))
         print("\nCall Tables:      [{}]".format(', '.join(map(str, CALL_STACK))))
         print("\nFrozen Tables:    [{}]".format(', '.join(map(str, FROZEN_TABLES))))
+
+    # for t in current_tables(CURRENT_SCOPES):
+    #     if t.name == '_main':
+    #         continue
+    #     print_table(t)
 
     if node.type is tree.Yield:
         LAST_EVALUATED = node
@@ -1003,37 +1048,19 @@ def evaluate(node):
             return EX.throw(node.location,
                 'Cannot make empty call. Evaluating an\n'+
                 'empty list does not make sense.')
-        if type(node.value) is tree.Symbol:
-            method = node.value.value
-            if conf.DEBUG: print("Calling symbolic method: ", repr(method))
-
-            if method in MACROS:
-                LAST_EVALUATED = MACROS[method](node)
-                return LAST_EVALUATED
-
-            LAST_EVALUATED = execute_method(node)
-            return LAST_EVALUATED
-
-        else:  # Not a symbol being called...
-            LAST_EVALUATED = execute_method(node)
-            return LAST_EVALUATED
+        LAST_EVALUATED = execute_method(node)
+        return LAST_EVALUATED
 
     raise Exception("Don't know what to do with %s, this is a bug" % str(node))
 
-def notevaluate(e):
-    return e
-
 def execute_method(node, args=None):
-    global LAST_EVALUATED, LAST_RETURNED, FROZEN_TABLES
+    global LAST_EVALUATED, LAST_RETURNED, FROZEN_TABLES, CALL_STACK
     definition = node
     if not isinstance(node, (Definition, function)):
         definition = evaluate(node.value)
 
     if type(definition) is function:
         return definition(node)
-
-    if type(definition) is tree.Nil:
-        return definition
 
     if type(definition) is not Definition:
         loc = None
@@ -1052,23 +1079,30 @@ def execute_method(node, args=None):
 
     if args is None:
         args = list(map(evaluate, node.operands))
-    definition.table.clean()
-    definition.table.give_args(args)
-
+    else:
+        print("Artificial args")
     FROZEN_TABLES = definition.frozen
 
     added = definition.table.scope == CURRENT_SCOPES[-1]
     if not added:
         CURRENT_SCOPES.append(definition.table.scope)
-    CALL_STACK.append(definition.table.freeze())
+
+    call_table = clone(definition.table)
+    call_table.clean()
+    call_table.give_args(args)
+    CALL_STACK.append(call_table)
 
     # Aaaaand then we finally actually male the call...
     result = definition.call()
     # Back to cleaning up our Symbol tables.
 
+    definition.table.clean()
+    FROZEN_TABLES = []
     if not added:
         CURRENT_SCOPES.pop()
+    CALL_STACK[-1].clean()
     CALL_STACK.pop()
+    del call_table
 
     LAST_EVALUATED = result
     LAST_RETURNED = LAST_EVALUATED
@@ -1097,6 +1131,8 @@ def visit(AST, pc=0, string=None):
             + 'or your recursing over something too many times.\n\n'
             + 'python      call-stack depth:  {},\n'.format(conf.RECURSION_LIMIT)
             + 'interpreter call-stack depth:  {}.'  .format(len(CALL_STACK)))
+    if conf.RECOVERING_FROM_ERROR:
+        conf.RECOVERING_FROM_ERROR = False
     if pc + 1 >= len(AST):
         return ret
     return visit(AST, pc + 1, string)

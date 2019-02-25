@@ -95,7 +95,8 @@ def macro_expansion(ast, i):
                         if parent is None:
                             ast[i] = replacement
                         else:
-                            if parent.value == subtree:
+                            if (type(parent.value.value) is tree.Symbol
+                            and parent.value == subtree):
                                 parent.value = replacement
                             else:
                                 for j in range(len(parent.operands)):
@@ -123,12 +124,13 @@ def macro_expansion(ast, i):
             return None
 
         if issubclass(t, tree.Data):
-            if subtree.value in MACROS:
+            if subtree.value in MACROS and type(subtree) is tree.Symbol:
                 if parent is None:
                     ast[i] = MACROS[subtree.value].quoted
                 else:
                     if issubclass(type(parent), tree.Operator):
-                        if parent.value.value == subtree.value:
+                        if (type(parent.value) is tree.Symbol
+                        and parent.value.value == subtree.value):
                             replacement = MACROS[subtree.value].invoke(parent)
                             if issubclass(type(replacement), tree.Operator):
                                 parent.value = replacement.value

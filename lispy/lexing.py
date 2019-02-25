@@ -5,12 +5,12 @@ import copy
 
 EOF = '\0'
 
-def exp(raw):
-    return re.compile(raw)
+# Alias the regex compiler
+exp = re.compile
 
 # Identifiers are matched as such:
 #   (Atoms and Symbols are the only identifiers)
-SYMS = r"_a-zA-Zα-ωΑ-Ω\+\-\=\<\>\*\/\%\^\&\$\£\#\~\`\|\\\¬\,\.\?\!\@"
+SYMS = r"_a-zA-Zα-ωΑ-Ω\+\-\=\<\>\*\/\%\^\&\:\$\£\#\~\`\|\\\¬\,\.\?\!\@"
 IDENT_STR = r"[{syms}][0-9\'{syms}]*".format(syms=SYMS)
                                          # e.g.
 L_PAREN    = exp(r"\A\(")                # '('
@@ -18,7 +18,7 @@ R_PAREN    = exp(r"\A\)")                # ')'
 NIL        = exp(r"\Anil")               # 'nil'
 SYMBOL     = exp(r"\A" + IDENT_STR)      # 'hello-world'
 UNEVAL     = exp(r"\A\'")                # '
-ATOM       = exp(r"\A\:[0-9" + IDENT_STR[1:])  # ':good-bye'
+ATOM       = exp(r"\A\:+[0-9" + IDENT_STR[1:])  # ':good-bye'
 NUMERIC    = exp(r"\A[0-9]+(\.[0-9]+)?([xob][0-9]+)?(e[\+\-]?)?[0-9a-fA-f]*")
 TERMINATOR = exp(r"\A\n")
 STRING     = exp(r"\A([\"'])((\\{2})*|(.*?[^\\](\\{2})*))\1")
@@ -114,7 +114,7 @@ class TokenStream(object):
         return new
 
     def __str__(self):
-        def form(s):
+        def form(s): # A nice string repr. of the stream.
             loc = [s.location['line'], s.location['column']]
             return '<Token({}) {} {} ... {}>'.format(
                 s.type,
@@ -124,9 +124,12 @@ class TokenStream(object):
             )
         return '\n'.join(map(form, self.tokens))
 
+# Simple stack-based algo for checking the amount of
+#  opening parens to the amount of closing, and giving a
+#  helpful error message
 def paren_balancer(stream):
-    stream = copy.copy(stream)
-    stack = []
+    stream = copy.copy(stream)  # Create a shallow copy of the stream
+    stack = []                  # in order to derefrence the original stream.
     balanced = True
     location = None
 
@@ -145,10 +148,11 @@ def paren_balancer(stream):
 
     opens = 0
     close = 0
-    for t in stream.tokens:
+    for t in stream.tokens: # Keep track of opens vs. closes
         if t.type == 'L_PAREN': opens += 1
         if t.type == 'R_PAREN': close += 1
 
+    # If the stack is empty, we've too many, otherwise to little closing parens.
     message = ('Unbalanced amount of parentheses,\n'
         + 'consider removing {} of them...'.format(close - opens))
     if len(stack) != 0:
@@ -169,12 +173,13 @@ def lex(string, file, nofile=False):
     string += EOF
     stream = TokenStream(file)
     i = 0
-    line = 1
+    line = 1  # Initialise location variables
     column = 1
 
-    match = None
+    match = None # Loop though the string, shifting off the string list.
     while i < len(string):
-        partial = string[i::]
+        partial = string[i::] # Match against the program, cut off slightly
+                              # more every time.
 
         # Add EOF token at End Of File:
         if partial[0] == EOF:
@@ -307,7 +312,7 @@ def lex(string, file, nofile=False):
             column += span
             continue
 
-        column += 1
+        column += 1 # Terminators are useless, but I might use them.
         if partial[0] == "\n":
             stream.add(Token('TERMINATOR', "\n", {
                 'line': line,
@@ -324,5 +329,7 @@ def lex(string, file, nofile=False):
     balancer = paren_balancer(stream)
     if not balancer['balanced']:
         EX.throw(balancer['location'], balancer['message'])
+        stream = TokenStream(stream.file)
+        stream.add(Token('NIL', 'nil', balancer['location']))
 
     return stream

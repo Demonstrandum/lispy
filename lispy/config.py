@@ -11,3 +11,4 @@ sys.setrecursionlimit(RECURSION_LIMIT)
 
 DEBUG = False
 EXIT_ON_ERROR = True
+RECOVERING_FROM_ERROR = False

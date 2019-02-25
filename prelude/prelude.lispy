@@ -1,10 +1,10 @@
+(require :functional)
 (require :destructive)
 (require :dt)
 (require :loop)
 (require :lists)
 (require :numerics)
 (require :IO)
-(require :functional)
 
 (let ($VERBOSE :false))
 (if $VERBOSE (puts "prelude loaded"))

@@ -1,6 +1,6 @@
 ;; REPL Implementation for LISPY
 
-;; A REPL is easy to implement in lisps, in fact
+;; A REPL is easy to implement in Lisps, in fact
 ;;   the very name REPL comes from something that
 ;;   can be very easily done in lisp:
 ;;     It stands for a READ-EVAL-PRINT-LOOP
@@ -8,4 +8,8 @@
 ;; A REPL is implemented very naively as such:
 ;   (loop (print (eval (read))))
 
+;                   vvvv - use `repr` to give an unescaped print-out.
 (loop (print "=> " (repr (eval (read "[lispy]> "))) "\n"))
+;            ^^ print return value.   ^^^^^^^^ prompt input, where you type.
+;^^^^  ^^^^^              ^^^^  ^^^^
+;(loop (print            (eval (read))))
