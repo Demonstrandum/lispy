@@ -4,7 +4,10 @@
 \documentclass{article}
 \usepackage{fancyvrb}
 \usepackage{verbatim}
-\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{fontenc}
+\usepackage{fontspec}
+\usepackage{pmboxdraw}
 \usepackage{textcomp}
 \usepackage{pmboxdraw}
 \usepackage{varwidth}
@@ -19,15 +22,8 @@
 \renewcommand{\labelitemii}{-}
 
 
+\setmonofont[Scale=0.85]{Fira Code}
 \newcommand{\code}[1]{\texttt{#1}}
-\newcommand{\multiline}[1]{\begin{center}
-                        \begin{tabular}{l}
-                          \begin{verbatim}
-                           #1
-                         \end{verbatim}
-                        \end{tabular}
-                        As a branch on a bigger syntax tree.
-                      \end{center}}
 
 \usepackage{amsmath}
 \usepackage{amssymb}
@@ -92,7 +88,9 @@
 \begin{document}
   \pagenumbering{gobble}
 
-  \title{Designing a Lisp Dialect and Interpreter\\AQA NEA Comp. Sci.}
+  \title{Design and Implementation of a\\LISP Dialect and Interpreter\\
+    \medskip
+    \large{\textrm{AQA NEA Comp. Sci.}}}
   \author{Samuel F. D. Knutsen}
   \date{Last Compiled: \today}
   \maketitle
@@ -118,31 +116,39 @@
 
 \section{Analysis}
   In this document I will be investigating the usage and implementation of
-  a Lisp Interpreter of our own variety, i.e. the language will be inspired
+  a Lisp Interpreter of my own variety, i.e. the language will be inspired
   by the conventions and harbour the basic properties of a Lisp. These
-  variations upon the language are called Lisp Dialect, one of which will be
-  our own, which I will be implementing, and outline in this document.
+  variations upon the language are called Lisp Dialects, one of which will be
+  my own, which I will be implementing, and outlining in this document.
+
+  LISP -- is a style of programming language, and stands for
+  \textsc{\underline{LIS}t \underline{P}rocessor}.\\
+  because of the fact that the entire language itself is simply constructed from
+  data, which are just lists of \emph{datum}, but more on that later.
 
   Designing and implementing a language are two distinct steps, but I need
-  to consider the other while working on each of the steps. That's to say, that
+  to consider both while working on each of the steps. That's to say, that
   when designing the language, I need to consider what would be realistic in
   implementing the language afterwards. The features of a language are
-  limited to what I will be able to actually write the code for, not
-  allowing for ambiguity.  In the second stage, when implementing it, I also
+  limited to what I will be able to actually write the code for, as well as not
+  allowing for ambiguity in the language.
+  In the second stage, when implementing it, I also
   need to stay true to our original design, and not stray from what I
-  originally intended, unless I had set unrealistic design goals.
+  originally intended (with the exception of allowing expansion upon the language),
+  unless I had set unrealistic design goals.
 
   \subsection{Motivation}
     Programming languages are not only naturally very important for programming
-    and programmers, but also a very fascinating topic, bridging the gap between
-    humans and the metal.
+    and programmers themselves,
+    but also a very fascinating topic, bridging the gap between
+    what is human language, and what is a computer language.
 
-    For the reason of interest alone, I already wanted to make a programming
-    language.  I have made programming languages a few times before, one of them
-    another interpreter meant to resemble Assembly code, meant for getting
-    used to the concepts of Assembly and how a computer works, by also creating
-    a website to visualise the internals of a computer (website: fam.knutsen.co).
-    However the language serves not much purpose other than for education.
+    % For the reason of interest alone, I already wanted to make a programming
+    % language.  I have made programming languages a few times before, one of them
+    % another interpreter meant to resemble sembly code, meant for getting
+    % used to the concepts of Assembly and how a computer works, by also creating
+    % a website to visualise the internals of a computer (website: fam.knutsen.co).
+    % However the language serves not much purpose other than for education.
 
     My motivations for making a Lisp interpreter, however, are many.
     Lisp, for one, is quite a powerful language, and I mean that in the sense
@@ -165,19 +171,20 @@
     understandable, after having read this paper through:
 
     \begin{minted}{Lisp}
-      (define macro (while c b)
-        (iterate (do
-          (unless (eval c) break)
-          (eval b))))
+      (define macro (while condition body)
+        (iterate
+          (if (eval condition)
+            (eval body)
+            break)))
     \end{minted}
 
 
     Another motivation is the potential that I may implement some features
     into the language that other Lisp dialects don't have, in addition, I can
     also control certain features that I don't want in the language, that
-    other Lisp dialects must almost religiously include (for example
+    other Lisp dialects almost almost religiously include (for example
     confusing naming on \code{car}, \code{cdr} and such, when \code{head}
-    and \code{tail} would suffice).
+    and \code{tail} (or \code{rest}) would suffice).
 
   \subsection{Research}
     To begin this project, a certain amount of research needs to be covered.
@@ -201,21 +208,21 @@
     with what is known as a `lexer' or `tokeniser' that performs lexical analysis.
     As one might gather from the name, this stage in the
     implementation tokenises the program.
-    Every program start of a just a long string of characters stored in a file, these
+    Every program starts of as just a long string of characters stored in a file, these
     individual characters aren't useful, we want to gather them up in to groups
-    of characters, e.g the program ``\code{print("Hello World")}'' is understood by
+    of characters, e.g. the program ``\code{print("Hello World")}'' is understood by
     the computer as just a string of characters:
-    \code{[`p', `r', `i', `n', `t', `(', `"', ...]}, this is not useful.
+    \code{['p', 'r', 'i', 'n', 't', '(', '"', ...]}, this is not useful.
     We want to group the individual components of the language together.
     As such:
 
-    \noindent\code{[[IDENTIFIER, `print'], [L\_PAREN, `('], [STRING, `Hello
-    World'], [R\_PAREN, `)']]}
+    \noindent\code{[[IDENTIFIER, 'print'], [L\_PAREN, '('], [STRING, 'Hello
+    World'], [R\_PAREN, ')']]}
 
     After this we proceed to the parsing stage. This essentially forms an
     abstract syntax tree from the tokens. This let's us define some sort of
-    separation and concept of nesting between statements,
-    grouping them together in a logical order.\autocite{dragon}
+    separation and concept of nesting between statements, grouping them together
+    in a logical order.\autocite{dragon}
     e.g.
 
     \[ \code{"2 + 3"} \Rightarrow \code{[[NUMERIC, '2'], [OP, '+'], [NUMERIC,
@@ -256,18 +263,20 @@
     \end{center}
 
 
-    Now that I have our syntax tree, I will have to implement some sort of a
-    visitor/walker, in order to execute our instructions, usually I could start
-    at the leaves of the tree and work ourself up, eventually evaluating the whole
-    expression, having evaluated the sub expressions.
+    Now that we have our syntax tree, I will have to implement some sort of a
+    visitor/walker, in order to execute and evaluate our instructions. Usually
+    we would start with the leaves of the tree and work ourself up,
+    eventually evaluating the whole expression, having evaluated the
+    sub-expressions first.
 
-    Luckily for me, I needn't consider operator precedence as `operators' are
+    Luckily for me, I needn't consider operator precedence, as `operators' are
     just function names which can be called, which forces prefix/polish notation
-    to be used, where precedence is implied by the order of the operators. Another
+    to be used, where precedence is implied by the order of the operators and
+    their bracketing. Another
     pro of parsing Lisps is that the Abstract Syntax Tree (`AST' from here on)
     already has a lot of similarity to the language itself, over all parsing is
-    much easier than it would be for some of today's more natural interpreted
-    programming languages.
+    much easier than it would be for some of today's more `human oriented',
+    interpreted programming languages.
 
 
 \section{Design of the language}
@@ -284,13 +293,14 @@
     fundamental datatypes is the cons cell.  The cons cell is a way of constructing
     trees, and thus lists alike.
 
-    Lisp ASTs are essentially linked-lists, capable of containing other nested
-    lists.  Take the list \code{(x y z)} for example, to represent this in the form
+    Lisp ASTs are essentially linked-lists, capable of containing pointers to
+    other nested lists (i.e. a `tree').
+    Take the list \code{(x y z)} for example, to represent this in the form
     of cons cells, we need to consider the fundamental cons function. The cons
-    function takes in a fundamental piece of data (i.e. not a list, very often
-    called an `atom', but that names ambiguous) and a pointer
+    function takes in a fundamental datum as first argument (can also be a pointer
+    to another list) and a pointer
     to the next cons cell, and to end the list, simply a NULL pointer (an empty
-    list or NIL is often used in place of NULL).
+    list or NIL is often used in the place of NULL).
 
     Hence, \code{(x y z)} becomes \code{(cons x (cons y (cons z NULL)))}.\\
     But this way of writing is verbose, so the preferred notation is the
@@ -298,13 +308,12 @@
     so, \code{(cons x (cons y (cons z NULL)))} is written as \code{(x . (y . (z . NULL)))}
 
     \clearpage
-    A linked list as such is implemented very plainly in C:
+    A linked-list/n-ary tree as such can implemented very plainly in C:
 
     \begin{minted}[mathescape,
                    linenos,
                    numbersep=5pt,
                    gobble=2,
-                   frame=lines,
                    framesep=2mm]{c}
     struct cons_cell {
       atom data;
@@ -313,7 +322,8 @@
 
     typedef struct cons_cell *cons;
 
-    // Thus, (x y z) is
+    // Thus, (x y z) will be:
+
     atom x = Symbol('x');
     atom y = Symbol('y');
     atom z = Symbol('z');
@@ -325,6 +335,10 @@
       return parent;
     }
 
+    /*  I could simply write a quick little function for what
+     *  I'm about to do, but I'll write out the construction of the
+     *  cons list explicitly, such that it's more obvious what we're doing.
+     */
     cons list = make_cons();
     list->data = x;
     list->next = make_cons();
@@ -335,7 +349,7 @@
     \end{minted}
 
     Which can be visualised as:
-    \graph{cons-cells}{Visual representation of cons cells / a linked list}
+    \graph{cons-cells}{Visual representation of cons cells (i.e. a linked list)}
 
 
     However, I will not be implementing my s-exps in this manner, nor
@@ -343,15 +357,16 @@
     (although \code{cons} can be very easily implemented as a macro).
     This is  because I will not be writing this in C, but rather in a higher
     level language (Python $>$3.7).  I'll be writing this in Python as it is
-    what my school has available and what is taught there.
+    what my school has available and it is what is taught there.
 
   \subsection{Syntax}
     Lisp consists of lists, and lists within lists,
     as I discussed earlier. Every list is denoted by a set of
     parentheses where the first element is generally a function name, and the
     following being its arguments. Some lists get expanded from their macro at
-    the pre-compilation stage, and subsequently all lists get evaluated as a
-    function call. One might wonder how you make a normal list, if Lisp treats
+    the pre-compilation/preprocessing stage,
+    and eventually all lists get evaluated as a
+    function call. One might wonder how one makes a normal list, if Lisp treats
     all lists as function calls. Lisp has a somewhat unique feature, and that is
     the `unevaluate'/`quote' ``operator'' (if you will) which is denoted by
     putting
@@ -367,29 +382,29 @@
     \end{center}
 
     Here we see that list items are separated by spaces, rather than the more
-    common comma in other languages, making white-space significant to some
+    common comma (\code{,}) in other languages, making white-space significant to some
     degree. However, other than that, white-space is quite insignificant and
     the language has no need for things such as terminators (terminators are
     semi-colons in C and a new line in Python for example), and that's because
     everything is neatly wrapped up in parentheses and therefore every statement
-    is automatically separated anyway.
+    is automatically separated from each other, anyway.
 
     \subsubsection{Polish Notation / Prefix notation}
     Lisp could be said to be a language using Polish notation, that's to say
-    that the language places its `operators' (which we'll discuss later) are
-    prefix operators, or put in front.  Traditionally operators are placed in
-    between their operands, this is called infix notation ($1 + 2$ for example).
+    that the language places its `operators' (which we'll discuss later) as prefixes,
+    meaning they're put in front of operands.  Traditionally operators are placed in
+    between their operands, this is called `infix' notation ($1 + 2$ for example).
 
     Prefix notation has some advantages and disadvantages, really, the only
-    disadvantages to prefix notation is the fact that it may be less readable.
+    disadvantage to prefix notation is the fact that it may be less readable.
     The \emph{sole} reason for the fact that it is less readable is simply
-    that we are not used to it, because we're used to infix notation.
+    that we are not used to it, because we're used to infix notation, instead.
     We could just as easily be using prefix notation, but things didn't turn out
     that way, but that doesn't prevent us from learning and quickly getting used
     to it.
 
-    On the other hand, the advantages are make up for the disadvantages.
-    One major advantage is the fact that precedence is implied, if and only if
+    On the other hand, the advantages really do make up for the disadvantages.
+    One major advantage is the fact that precedence is \emph{implied}, if and only if
     the exact amount of operands an operator can have are two; when that is true
     there is absolutely no need for things such as parentheses. However, Lisp
     \emph{does} make heavy use of parentheses and thus suffers from another
@@ -404,7 +419,7 @@
 
     The fact that Lisp uses prefix notation was not necessarily a choice for
     the language per se, but rather a consequence of the languages structure and
-    a symptom of the language's aim to be itself \emph{data}.
+    a symptom of the language's aim to, itself, \emph{be data}.
 
     \subsubsection{Unique Data-types}
       Most Lisp dialects have about 7 fundamental datatypes:
@@ -435,7 +450,7 @@
       \end{itemize}
 
       My atoms are not at all your standard Lisp atom, in most Lisp contexts
-      `atom' just means a fundamental datatype, but this is not what I'll be
+      `atom' just means a fundamental datum, but this is not what I'll be
       calling an atom.
 
       Atoms are a useful construct in my experience. The Ruby programming language
@@ -447,33 +462,35 @@
 
       %% Extract from a file comment I made
       Atoms simply exist for their name.
-      No atoms ever need to be created as
+      No atoms ever need to be created/initialised (manually) as
       one could simply imagine that all
       possible atoms already exist at once.
 
       When an atom is first used, it is assigned
       a location in memory based on some hash, and
-      any future use of that same atom/atom-name will
-      reference the same exact location in memory.
+      any future use of that same atom
+      references the same exact location in memory.
 
       Atoms are not strings, you can't change anything
       about them, to do that, simply use another atom.
       Two separate identical strings will take up and be
       declared in different locations in memory, this is
       not true for atoms. Atoms will always use the same
-      location in memory, there is no reason for the to
+      location in memory, there is no reason for them to
       do otherwise, (unlike with strings)
 
       Atoms must start with a colon, then an identifier
       string, just like symbols (but with a colon in front).
       One may think of atoms as being used the same way
       as \code{enums} are, existing only for the purpose of
-      having a way to identify something
+      having a way to identify something.\\
+
+      \centerline{e.g. \code{:this-is-an-atom}}
 
     \subsubsection{Operators}
       Technically in Lisp, any function could be called an operator.
       It is also true that all the operators we traditionally call operators
-      are also operators (i.e. \code{+, -, *, /, \%,} \etc).
+      are also operators in Lisp (i.e. \code{+, -, *, /, \%,} \etc).
       Hence, transitively, all (traditional) operators are functions!
 
       The fact that all operators are just functions, I see as a hugh advantage
@@ -501,17 +518,17 @@
 
       My language should have a few defined reserved words, but my aim is to keep
       the number of them as low as possible, because, like in many Lisps, many
-      things can be defined as macros in a standard library anyway.
-      Some words that I plan to reserve are as follows:
+      things can be defined as macros in a standard/prelude library anyway.
+      Some words that I plan to reserve are the following:
 
       \begin{itemize}
-        \item Yield statement, similar to a return, \code{(yield ...)}.
+        \item Yield statement, similar to the return-statement, \code{(yield ...)}.
         \item Unevaluator, this is the single single-quote, \code{'some-name},
               \code{'(some list of symbols)}.
-        \item Nil, this is the only kind of its type, and will be entirely
-              reserved as its own lexeme, \code{nil}.
+        \item Nil, this is the only kind of its type,\\
+              and will be entirely reserved as its own lexeme, \code{nil}.
         \item All symbols such as \code{(} and \code{)}, and \code{"}, as they
-              exist to describe other constructs.
+              exist to describe other constructs. (i.e. lists and strings)
       \end{itemize}
 
       Other than that, the semi-colons (\code{;}) will describe EON comments,
@@ -519,10 +536,10 @@
       anything else will be completely ignored by the language.
 
       Other items, that are not understood by the Lexer and Parser, but are
-      still technically part of the List of reserved words are the internal
+      still technically part of the list of reserved words are the internal
       macros, which will be identified and dealt with at the evaluation stage
       are called `internal macros`, because their behaviour is technically like
-      macros and they are built internally into the interpreter.
+      macros, but they are built internally into the interpreter.
 
     \subsubsection{Internal Macros}
       Internal macros in a language are also not usually allowed to be reassigned
@@ -537,21 +554,23 @@
 
       \begin{itemize}
         \item \code{define} -- Probably the most important macro, it takes in a
-                               name and arguments for a function, and creates a
+                               name, arguments for a function and a function body,
+                               and creates a
                                function in the current scope with that name.
                                Essentially the equivalent of \code{def} in
                                languages such as Ruby, Python, Scala, \etc
 
         \item \code{lambda} -- Same as define, but the function is nameless.
-
+                               This is also called an anonymous function.
 
         \item \code{let} -- Would bind a value to a symbol, say $x = 3$, in Lisp
                             we'd write \code{(let (x 3))}.
 
-        \item \code{print} -- Print the operands of the print statement to STDOUT.
-        \item \code{if} -- If is a thee way statement, the first operand is the
+        \item \code{print} -- Print the operands of the print statement to \code{STDOUT}.
+        \item \code{if} -- \code{if} is a three way statement, the first operand is the
                            condition, the second is the consequence, the third
-                           is the alternative, if-this-then-that-else-that.
+                           is the alternative,
+                           if-\underline{this}-then-\underline{that}-else-\underline{that}.
 
         \item \code{<} -- Check if each operand is less than the next.
         \item \code{>} -- Check if each operand is greater than the next.
@@ -561,18 +580,18 @@
         \item \code{type} -- Returns the type of its evaluated operand.
 
         \item \code{list} -- Creates an unevaluated list, but all the operands
-                             get evaluated at the construction if the list.
+                             get evaluated at the construction of the list.
 
 
 
         \item \code{+} -- Addition macro will add all its operands.
-        \item \code{-} -- Subtraction macro will subtract all its operands.
+        \item \code{-} -- Subtraction macro will subtract all its operands from each other.
         \item \code{*} -- Multiplication macro will multiply all its operands.
-        \item \code{/} -- Division macro will divide all its operands.
+        \item \code{/} -- Division macro will divide all its operands  by each other.
         \item \code{\%} -- Mod macro will give the remainder of the division of
                            all its operands.
 
-        \item \code{eval} -- Takes an unevaluated list or string, and evaluates
+        \item \code{eval} -- Takes an unevaluated list or a string, and evaluates
                              it as normal code, a very important macro in any
                              Lisp dialect.
       \end{itemize}
@@ -587,7 +606,7 @@
     symbols \code{DEFINE}, \code{LAMBDA}, \code{LABEL}, \code{COND},
     \code{COMBINE}, \code{FIRST}, \code{REST}, \code{NULL}, \code{ATOM},
     \code{EQ}, \code{NIL}, \code{T}, and \code{QUOTE} predefined\autocite{sexp}.
-    All symbol names were converted to upper- case and thus
+    All symbol names were converted to upper-case and thus
     symbol names became case insensitive in early Lisps, this is
     still a tradition upheld in many Lisps today (because it's said to be less
     error prone), however this is not a tradition I will be upholding.
@@ -597,15 +616,17 @@
     another form of quote, the `quasiquote'.
 
     The quasiquote works just as the normal quote but with added functionality.
-    It can ``unquote'' its operands through use of the \code{(unquote ...)}
+    It can ``unquote'' selective operands through use of the \code{(unquote ...)}
     macro inside of the \code{(quasiquote ...)} macro. This essentially means
     you can choose to evaluate certain operands, unlike quote, which keeps all
-    operands unevaluated until you choose to evaluate them.
+    operands unevaluated until you choose to evaluate them individually after
+    its initial construction, when accessing the unquoted list.
 
-    In modern Lisps, some further shorting of syntax has been introduced:\\
+    In modern Lisps, some further syntactic sugar has been introduced
+    for the quasiquote:\\
 
     \begin{tabular}{lll}
-        \code{(quasiquote ...)}       & has been aliased to& \code{`...} (a backquote)\\
+        \code{(quasiquote ...)}       & has been aliased to& \code{`...} (a backquote/backtick)\\
         \code{(unquote datum)}        & has been aliased to& \code{,datum}\\
         \code{(unquote-splicing data)}& has been aliased to& \code{,@data}
     \end{tabular}
@@ -614,7 +635,7 @@
     the parent list)}
 
     Some examples of behaviour include:
-    \begin{minted}[escapeinside=||,mathescape=true]{lisp}
+    \begin{minted}[escapeinside=||,mathescape=true]{Lisp}
     `(1 2  (+ 3 4) 5)      |$\Rightarrow$|    '(1 2 (+ 3 4) 5)
     `(1 2 ,(+ 3 4) 5)      |$\Rightarrow$|    '(1 2 7 5)
     `(1 2 ,@(list 3 4) 5)  |$\Rightarrow$|    '(1 2 3 4 5)
@@ -637,7 +658,7 @@
       numerics and spaces, but, for a computer these are all characters of no
       particular separation. A lexers job is to separate them in to parts, such
       as say\\\code{List [ Sym +, Num 12, List [ Sym *, Num 3, Num, 4 ] ]}, and
-      ensure we dont get any non-sense tokens such as `\code{(+}' or `\code{* 3}'
+      ensure we dont get any non-sense tokens such as `\code{(+}' or `\code{* 3}'.
 
       \clearpage
 
@@ -690,17 +711,19 @@
       This basic function \code{lexer} does most of the works, it takes in a
       \code{String} (the program string itself) and gives a \code{TokenStream}
       (which is really just an alias for a list). The lexer initialises some
-      variables, very notably the \code{char\char`_pointer}, which very simply keeps
+      variables, very notably, the \code{char\char`_pointer}, which very simply keeps
       a track of how many characters through the program code we are. Then the
       \code{partial} variable is just a section of the program string, it begins
-      at the location of \code{char\char`_pointer} and all the way to the end.\\
+      at the location of \code{char\char`_pointer} and all the way to the end
+      of the string.\\
 
       A while-loop will run all the way until we hit a null (\code{\char`\\0})
       EOF string terminator, and checks various conditions as well as incrementing
       the \code{char\char`_pointer} and updating the \code{partial} variable.
       The conditions check whether we've matched a certain token out of the beginning
       of the \code{partial} string, if so, we push a new \code{Token} to the
-      \code{stream} list, with the appropriate type and matched string supplied.
+      \code{stream} list, with the appropriate type and matched string supplied
+      with it.
 
     \subsubsection{Generating an Abstract Syntax Tree}
       Now that we have our list of tokens, the next step is to take those tokens
@@ -712,11 +735,12 @@
 
       The parsing pattern we'll be implementing for generating our tree will
       likely be a bottom-up parser (or a shift-reduce parser). A shift-reduce
-      parser does exactly what it says, it shifts tokens from the token stack
-      to a temporary stack, and parses the \emph{leaves} of the tree, before it
-      generates their branches (hence the name bottom-up).  It is often
-      implemented recursively (as with many parsers) and is generally a lot more
-      effective than a top-down parser, which requires a lot of guess-work.
+      parser does exactly what its name says it does:
+      it shifts tokens off the token stack, and parses the \emph{leaves} of the
+      tree, before it generates their super-branches (hence the name bottom-up).
+      It is often implemented recursively (as with many parsers) and is
+      generally a lot more effective than a top-down parser, which requires a
+      lot of guess-work.
 
       A general implementation of such a parser written in pseudo-code,
       could look something this:
@@ -725,22 +749,22 @@
 # -- Get a our stream of tokens by calling the lexer
 stream : TokenStream = Lexer::lex PROGRAM_STRING
 
-# -- Define varius AST datatypes
+# -- Define various AST datatypes
 DataType Tree =>
   self.children = []
 
 DataType Call (values) =>
   self.values = values
   get self.operator =>
-    return head self.values
+    return head (self.values)
   get self.operands =>
-    return tail self.values
+    return tail (self.values)
 
 # --- Generalised datatype for an atomic AST datum
 Abstract DataType Atomic (value) =>
   self.value = value
 
-DataType Numeric inherits Atomic
+DataType Numeric inherits Atomic  # Atomic types represent a single datum.
 DataType Symbol  inherits Atomic
 
 # -- Actually implement the parser
@@ -750,25 +774,25 @@ parse (stream) =>
   until empty? stream =>
     tree.children.push (atomic (stream)) # Deals with parsing individual datum
     stream.shift # Now shift off of the TokenStream stack
-  return tree # Return the tree we've built up.
+  return tree # Return the super-tree we've built up.
 
 atomic :: TokenStream -> (Call | Atomic)
 atomic (stream) =>
   condition if =>
     | (stream[0].type is L_PAREN) =>
-        call = new Call []
-        until stream[0] is R_PAREN =>
+        call = new Call []  # An open left-parentheses means a function call.
+        until stream[0] is R_PAREN => # Serch for a maching right-parentheses.
           stream.shift # shift off L_PAREN from stack (initially).
-          call.values.push (atomic (stream)) # Push and recursively call
-        return call                          # atomic on shifted stack.
+          call.values.push (atomic (stream))   # Push and recursively call
+        stream.shift # Shift the R_PAREN off   # atomic on shifted stack.
+        return call
     | (stream[0].type is NUMERIC) => return new Numeric (stream[0].string)
     | (stream[0].type is IDENTIFIER) => return new Symbol (stream[0].string)
     | otherwise =>
-        Throw UnknownTokenType,
-          "Token type" ++ stream[0].type ++ "is unknown."
-        # If our lexer was implemented properly
-        #   we wouldn't have to throw  an error, so we'll hopefully
-        #   never reach the `Throw`.
+        Throw (UnknownTokenType,
+          "Token type" ++ stream[0].type ++ "is unknown.")
+        # If our lexer was implemented properly, we wouldn't have to throw
+        # an error, so we'll hopefully never reach the `Throw`.
 
       \end{minted}
       \clearpage
@@ -786,17 +810,17 @@ atomic (stream) =>
       the stream, whose return value will get pushed as a child/branch onto the
       parent/root-tree. After that we shift one token off the stack and repeat
       until all tokens have been shifted off, (note: \code{atomic} may shift
-      tokens off the stack as well, when parsing sub-expressions to a bigger
+      tokens off the stack as well, when parsing sub-expressions for a bigger
       expression).
 
-      \code{atomic} --- The \code{atomic} function takes (probably incomplete,
-      due to shifting) token \code{stream} variable of
+      \code{atomic} --- The \code{atomic} function takes a (probably incomplete,
+      due to shifting) token-\code{stream} variable of
       type \code{TokenStream} and returns either a \code{Call} node or a derived
       \code{Atomic} node such as \code{Numeric} or \code{Symbol} (i.e.
       \code{(Call | Atomic)}). \code{atomic}, is just one big conditional, that
       operates depending on which token happens to be on top of the stack at that
       point in time.  The first condition checks whether we have a function call
-      being starting in our code (i.e. we've seen a left-parenthesis).
+      being opened/started in our code (i.e. we've seen a left-parenthesis).
 
       \begin{adjustwidth}{1cm}{}
       \indent \indent If we do spot an \code{L\_PAREN}
@@ -809,7 +833,9 @@ atomic (stream) =>
       other function calls to be parsed within parent function calls. When we've
       finally reached that corresponding right-parenthesis, and have pushed all
       our parsed sub-expression to the function call, we return the \code{Call}
-      node and we end up back in the \code{parse} function.
+      node and we end up back in the \code{parse} function, where the \code{call}
+      node is pushed to the root-tree (or it may indeed be pushed to another
+      parent call-node).
       \end{adjustwidth}
 
       \clearpage
@@ -818,12 +844,12 @@ atomic (stream) =>
       After we've generated the most basic syntax tree, we should start the macro
       expansion phase.  Macros, you may be familiar with from other languages
       (especially compiled languages), they're part of the preprocessor stage,
-      and thus don't do anything at evaluation time.
+      and thus do not exist at evaluation time.
 
-      Let's demonstrate through an example. Take the macro, and the function:
+      Let's demonstrate through an example. Take the macro, \emph{and} the function:
 
-      \begin{minted}[escapeinside=||,mathescape=true]{lisp}
-        (define macro  |\,|  (add-3-macro x) (+ x 3))
+      \begin{minted}[escapeinside=||,mathescape=true]{Lisp}
+        (define macro    (add-3-macro x) (+ x 3))
         (define function (add-3-func  x) (+ x 3))
 
         (print (add-3-macro 2) "\n") |$\Rightarrow$| 5
@@ -846,8 +872,8 @@ atomic (stream) =>
       replaces all instances of \code{x} with \code{2} (in this example).
 
       So essentailly,
-      \begin{minted}[escapeinside=||,mathescape=true]{lisp}
-        (print (add-3-macro 2) "\n") |$\Rightarrow$| (print (+ 2 3) "\n")
+      \begin{minted}[escapeinside=||,mathescape=true]{Lisp}
+        (print (add-3-macro 2) "\n") |$\textrm{expands to:}$| (print (+ 2 3) "\n")
       \end{minted}
 
   \subsection{Interpreter}
@@ -857,7 +883,7 @@ atomic (stream) =>
 
     The interpreter will essentially consist of three important parts/aspects.
     \begin{enumerate}
-      \item Symbol Tables, and using them for Scoping.
+      \item Symbol Tables, and usage of them in Scoping.
       \item Defining internal macros/functions.
       \item Running through the sub-trees of the AST recursively and evaluating
       appropriately certain expressions, by first evaluating the leaves of the
@@ -866,9 +892,9 @@ atomic (stream) =>
 
     \clearpage
 
-    \subsubsection{Scoping \& Binding Symbol in Symbol Tables}
-    Let's start off by defining various Symbol Table stacks (such as call stacks
-    and \emph{frozen} stacks and a list of current scopes)
+    \subsubsection{Scoping \& Binding Symbols in Symbol Tables}
+    Let's start off by defining various symbol-table stacks (such as call-stacks
+    and \emph{frozen}-stacks and a list of current, parent scopes)
 
 \begin{minted}[linenos]{ruby}
 DataType SymbolTable (scope_id) =>
@@ -878,16 +904,16 @@ DataType SymbolTable (scope_id) =>
                        # (lambdas will have frozen super-scopes).
   self.bind (symbol, value) =>
     self.local[symbol] = value
-
   self.clean =>
-    self.local = {} # Empty the local variables
+    self.local = %{} # Empty the local variables.
 
 # --- Define all the scope stack we need to keep track of:
+
 ALL_SCOPES    = new Stack of SymbolTable
-PARENT_SCOPES = new Stack of Integer
+PARENT_SCOPES = new Stack of Integer  # Integer IDs (i.e. unique scope IDs)
 
 CALL_STACK    = new Stack of SymbolTable
-GLOBAL_FROZEN = new Stack of (frozen)->SymbolTable
+GLOBAL_FROZEN = new Stack of SymbolTable where .frozen <- :true
 # ---
 
 # A type for function definitions.
@@ -902,13 +928,13 @@ DataType FuncDef (scope, name, args, subtree) =>
     PARENT_SCOPES.push (self.scope) #    user defined function.
     CALL_STACK.push (self.table) # Push appropriate scopes.
     for i in length (self.args) =>
-      self.table.bind(self.args[i], operands[i]) # Bind arguments.
-
+      self.table.bind(self.args[i], operands[i]) # Bind arguments,
+                               # to the call stack's latest scope.
     evaluate(self.subtree) # Finally evaluate the body.
 
     PARENT_SCOPES.pop
-    CALL_STACK.pop # Pop them off again.
-    self.table.clean # Get rid of bindings again.
+    CALL_STACK.pop # Pop the symbol-table off again.
+    self.table.clean # Get rid of old bindings.
 \end{minted}
       This outlines the tools we'd be using, for dealing with scoping things in
       our language.
@@ -1043,7 +1069,7 @@ evaluate (node) =>
   \subsubsection{Including a REPL}
     It'd be nice with a REPL as well. Quite simply a REPL is a
     READ-EVAL-PRINT-LOOP, and its implementation is in its name.
-    \begin{minted}{lisp}
+    \begin{minted}{Lisp}
       (loop (print (eval (read))))
     \end{minted}
     This is quite a na\"{i}ve implementation, but it still works just fine,

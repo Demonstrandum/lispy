@@ -22,7 +22,9 @@
   (while (< i (size array)) (do
     (mutate (sym (index i array)))
     (eval body)
-    (+1 i)))))
+    (+1 i)))
+  (delete i array sym)
+  (eval l)))
 
 (define (reverse l) (do
   (let (reversed (list)))
@@ -50,6 +52,6 @@
 
 (define (filter f l) (do
   (let (new (list)))
-  (each l (->
-    (if (f %1) (push %1 new))))
+  (for e in l (do
+    (if (f e) (push e new))))
   (yield new)))

@@ -222,7 +222,7 @@ def to_type(node):
     if type(node) is tree.Nil:
         return 'Nil'
     if type(node) is tree.Uneval:
-        return 'Uneval'
+        return 'Uneval->{}'.format(to_type(node.value))
     if type(node) is tree.Call:
         return 'Call'
 
@@ -329,7 +329,8 @@ def name_value(node):
     if type(node) is tree.Uneval:
         s = node.value.value
     s = ':' + s
-    ATOMS[s] = Atomise(s)
+    if s not in ATOMS:
+        ATOMS[s] = Atomise(s)
     return ATOMS[s]
 
 CURRENT_SCOPES = [0x0]  # Default scope is main scope (0x0).
@@ -424,13 +425,13 @@ def _scope_macro(node):
 
 def _type_macro(node):
     if len(node.operands) == 0:
-        return EX.throw(node.location,
+        return EX.throw(node.value.location,
             '`type` built-in macro takes exactly one argument.')
     return name_value(to_type(evaluate(node.operands[0])))
 
 def _name_macro(node):
     if len(node.operands) == 0:
-        return EX.throw(node.location,
+        return EX.throw(node.value.location,
             '`name` built-in macro takes exactly one argument.')
     return name_value(evaluate(node.operands[0]))
 
@@ -872,6 +873,17 @@ def _let_macro(node, mutable=False):
     if conf.DEBUG: print('After let, defined variables in current scope, are: ', lookup_table(CURRENT_SCOPES[-1]).local)
     return search_symbol(CURRENT_SCOPES, name)
 
+def _delete_macro(node):
+    for op in node.operands:
+        if (not name_node(op)) and (type(op) is not tree.Symbol):
+            return EX.throw(op.location,
+                "Can only delete Symbols, or refrences\n"
+                + "to symbols through name nodes. ({} => {}) isn't seen as a name.".format(to_s(op), to_type(op)))
+        name = op.value if type(op) is tree.Symbol else name_value(op).name[1:]
+        t = where_symbol(CURRENT_SCOPES, name)
+        del t.local[name]
+    return ATOMS[':true']
+
 def _lambda_macro(node):
     table = SymbolTable(id(node), '_lambda', node)
     args = [node.operands[0].value] + node.operands[0].operands
@@ -969,6 +981,7 @@ MACROS = {
     'read': _read_macro,
     'puts': _puts_macro,
     'let': _let_macro,
+    'delete': _delete_macro,
     'mutate': lambda node: _let_macro(node, mutable=True),
     'λ': _lambda_macro,
     '->': _shorthand_macro,
