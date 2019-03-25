@@ -409,9 +409,9 @@ def _eval_macro(node):
         syntax_tree = parsing.parse(stream, string=inside)
         return visit(syntax_tree, string=inside)
     if not is_node(inside):
+        if inside.type is tree.Call:
+            return execute_method(inside)
         return inside
-    if inside.type is tree.Call:
-        return execute_method(inside)
     return evaluate(inside.value)
 
 def _scope_macro(node):

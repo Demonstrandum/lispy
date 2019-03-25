@@ -250,9 +250,13 @@ def lex(string, file, nofile=False):
             loc = {'line': line, 'column': column, 'filename': filename}
             while partial[j] != '"':
                 if partial[j+1] == EOF:
-                    EX.throw({'line': line, 'column': column},
+                    l = {'line': line, 'column': column+1, 'filename': filename}
+                    EX.throw(l,
                         'Unexpected EOF while reading string,\n'
                         + 'please check that you closed your quote...')
+                    stream = TokenStream(stream.file)
+                    stream.add(Token('NIL', 'nil', l))
+                    return stream
                 if partial[j] == '\n':
                     contents += '\\n'
                     line += 1

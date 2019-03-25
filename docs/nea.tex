@@ -31,7 +31,6 @@
 \usepackage{enumitem}
 \usepackage{lipsum}
 \usepackage{changepage}
-
 \usepackage{minted}
 \newenvironment{snippet}[1][python]
   {\VerbatimEnvironment
@@ -69,7 +68,7 @@
 \newcommand{\graph}[2]{
   \begin{figure}[H]
     \centering
-    \includegraphics[width=\textwidth]{#1}
+    \includegraphics[width=\textwidth,height=17cm,keepaspectratio]{#1}
     \caption{#2}
   \end{figure}
 }
@@ -88,7 +87,7 @@
 \begin{document}
   \pagenumbering{gobble}
 
-  \title{Design and Implementation of a\\LISP Dialect and Interpreter\\
+  \title{Design and Implementation of a\\LISP Dialect \& Interpreter\\
     \medskip
     \large{\textrm{AQA NEA Comp. Sci.}}}
   \author{Samuel F. D. Knutsen}
@@ -96,7 +95,7 @@
   \maketitle
   \blfootnote{Beauchamps High School and Sixth Form,}
   \blfootnote{Centre \numero 16137,}
-  \blfootnote{Candidate \numero 2484.}
+  \blfootnote{Candidate \numero 2248.}
   \clearpage
 
   \tableofcontents
@@ -108,18 +107,18 @@
 
   \begin{abstract}
     \textsc{\textbf{Abstract}} ---
-    Throughout this article I will be looking at use cases, motivations,
+    Throughout this paper I will be looking at use cases, motivations,
     implementation, documentation and usage of building an interpreter for
     our new Lisp Dialect.
     \vspace{-5pt}
   \end{abstract}
 
 \section{Analysis}
-  In this document I will be investigating the usage and implementation of
+  In this section I will be investigating the usage and implementation of
   a Lisp Interpreter of my own variety, i.e. the language will be inspired
   by the conventions and harbour the basic properties of a Lisp. These
   variations upon the language are called Lisp Dialects, one of which will be
-  my own, which I will be implementing, and outlining in this document.
+  my own, which I will be implementing, and outlining in this paper.
 
   LISP -- is a style of programming language, and stands for
   \textsc{\underline{LIS}t \underline{P}rocessor}.\\
@@ -145,7 +144,7 @@
 
     % For the reason of interest alone, I already wanted to make a programming
     % language.  I have made programming languages a few times before, one of them
-    % another interpreter meant to resemble sembly code, meant for getting
+    % another interpreter meant to resemble assembly code, meant for getting
     % used to the concepts of Assembly and how a computer works, by also creating
     % a website to visualise the internals of a computer (website: fam.knutsen.co).
     % However the language serves not much purpose other than for education.
@@ -648,7 +647,7 @@
     I personally think the syntax is getting out of hand, and I doubt I'll be
     implementing this in my Lisp dialect.
 
-    \subsubsection{Generating a Token Stream}
+    \subsubsection{Generating a Token Stream} \label{lexing}
       The lexical analyser is responsible for reading through our program string
       and splitting up the program in to sensible tokens representing a single
       datum, that comprises and represents something in the languages syntax.
@@ -868,10 +867,10 @@ atomic (stream) =>
       The macro, is essentially just text replacement (although what the macro
       accomplishes is actually done through manipulating the syntax tree).
       So, when the macro-expander sees your making a call with a macro-name as the
-      caller, it essentailly copy-pastes the arguments into the macro body, and
+      caller, it essentially copy-pastes the arguments into the macro body, and
       replaces all instances of \code{x} with \code{2} (in this example).
 
-      So essentailly,
+      So essentially,
       \begin{minted}[escapeinside=||,mathescape=true]{Lisp}
         (print (add-3-macro 2) "\n") |$\textrm{expands to:}$| (print (+ 2 3) "\n")
       \end{minted}
@@ -889,6 +888,9 @@ atomic (stream) =>
       appropriately certain expressions, by first evaluating the leaves of the
       tree, slightly similar to how we parsed the program.
     \end{enumerate}
+
+    \graph{example_interp}{Here is an example of how a typical fully functional
+    REPL-based Lisp interpreter might function.}
 
     \clearpage
 
@@ -947,8 +949,9 @@ DataType FuncDef (scope, name, args, subtree) =>
       the language. Take for example, the add \code{`+'} function/internal macro.
       It is basically required that this is not implemented in the language we're
       making, itself, as it is one of the most basic operations we can perform,
-      and there'd be no way of implementing it. Others include \code{define} and
-      \code{-}. I've alredy run through numerous macros earlier in this paper.
+      and there'd be no way of implementing it without direct help from our
+      host language. Others include \code{define} and \code{-} and so on.
+      I've already run through numerous macros earlier in this paper.
 
       Say for example, our interpreter encounters a symbol within our defined
       list internal macros, perhaps layed out as a hash-map like so:
@@ -969,6 +972,7 @@ DataType FuncDef (scope, name, args, subtree) =>
       we'd deal with it something like this.
       \begin{minted}[mathescape]{ruby}
         # Inside the evaluation function:
+        evaluate :: (Call | Atomic) -> Anything
         evaluate (node) =>
           # ...
           if typeof (node) is Symbol =>
@@ -992,12 +996,13 @@ DataType FuncDef (scope, name, args, subtree) =>
       Let's take the \code{+} internal macro, perhaps it would look something
       like this (in pseudo-code):
       \begin{minted}{ruby}
+        __ADDITION_MACRO__ :: Call -> Atomic
         __ADDITION_MACRO__ (call_node) =>
           args = map(evaluate, call_node.operands) # Evaluate every operand first.
           sum = 0
           for arg in args =>
             if typeof (arg) is not Numeric =>
-              Throw TypeError, arg ++ " is not a Numeric type."
+              Throw (TypeError, arg ++ " is not a Numeric type.")
             sum = sum + arg
           return sum
           # An internal iterative solution is much more efficient
@@ -1005,18 +1010,20 @@ DataType FuncDef (scope, name, args, subtree) =>
       \end{minted}
       Really, theres nothing fancy going on here, it is simply a way to build
       the most basic components of the language, and interface with features
-      (such as basic addition) of the implementation language.
+      (such as basic addition) from the implementation language.
     \subsubsection{Interpretation Pattern}
       As briefly seen above, there are two basic functions I plan to be
       implementing.  A \code{visit} function and the very critical \code{evaluate}
       function.
 
       Let's start by describing the \code{visit} function. It's a simple to
-      implement, all it needs to do is visit each root branch of the \code{Tree}
-      and evaluate each branch (which will subsequently evaluate all its children
-      trees recursively) in a simple loop. It may be implemented as such:
+      implement, all it needs to do is visit each root-branch of the \code{Tree}
+      and evaluate each branch (which will subsequently evaluate all its
+      subtrees recursively) in a simple loop. It may be implemented as such
+      in pseudocode:
 
-      \begin{minted}[linenos]{ruby}
+      \begin{minted}[]{ruby}
+        visit :: Tree -> Nothing
         visit (AST) =>
           for child in AST =>
             evaluate (child)
@@ -1031,6 +1038,7 @@ DataType FuncDef (scope, name, args, subtree) =>
       \clearpage
 
       \begin{minted}[linenos]{ruby}
+evaluate :: (Call | Atomic) -> Anything
 evaluate (node) =>
   case typeof(node)
   when Numeric =>
@@ -1066,23 +1074,159 @@ evaluate (node) =>
                              passed to be evaluated.")
       \end{minted}
 
-  \subsubsection{Including a REPL}
+  \subsubsection{Including a REPL} \label{repl}
     It'd be nice with a REPL as well. Quite simply a REPL is a
     READ-EVAL-PRINT-LOOP, and its implementation is in its name.
     \begin{minted}{Lisp}
-      (loop (print (eval (read))))
+      (loop (print (eval (read))))  ;; Just one line, implements the whole thing.
     \end{minted}
     This is quite a na\"{i}ve implementation, but it still works just fine,
-    all we need to do, is execute the code.
+    all we need to do, is execute the Lisp code using our interpreter.
 
     \clearpage
-  \subsection{General Planned Implementation}
-    We need to set out our files and file structure.
 
 
 \section{Technical Solution \& Implementation}
+  \blfootnote{Any absolute file paths presented are relative to the root directory of
+  the repository for the code.}
+  In this section we'll be walking through the code (Python code) that
+  implements the entire Lisp language that we've designed. Somewhere around
+  the beginning of writing the implementation of the language I realised I would
+  need a name for the language, and I settled on \textsc{Lispy}, which is
+  essentially just `Lisp' and `\underline{Py}thon' put together. Python files
+  do end in the extension \code{.py}, and hence the file extension we'll
+  be using for Lispy program files is \code{.lispy}.  It's perhaps not the most
+  creative name, and no doubt a name that's (probably) been used before, by someone else
+  writing their Lisp in Python.
+
+  The file structure of the repository is easy to follow and looks like this:
+  \graph{files}{Repo. file structure.}
+
+  \clearpage
+
+  The \code{lispy} folder contains everything from the lexer, to the evaluator,
+  with some extra files for tweaking it's behaviour and tackling errors.
+  The \code{\_\_init\_\_.py} file ties all the files in the folder together into a
+  neatly wrapped Python module, such that externally, in another Python file
+  (say the \code{./execute} or the \code{./ilispy} file) you can simply do
+  \code{import lispy} and access all the language implementation from there.
+
+  \graph{execute_file}{The \code{./execute} file, is the main file that runs
+  Lispy programs.}
+  The main file responsible for executing code found in actual \code{.lispy}
+  files is the \code{execute} file, and takes in arguments from the command
+  line, which needs to be one or more Lispy program files. It does this by
+  accessing the ARGV variable, containing the passed arguments, similar to
+  how you pass \code{argc} and \code{argv} to the \code{main} function in C.
+  e.g.
+  \begin{minted}{c}
+    int main(int argc, char **argv)
+    {
+      ...
+    }
+  \end{minted}
+  \graph{ilispy_file}{Allows us to run a REPL, in a way such that it will recover
+  from any errors, instead of just exiting.}
+  The \code{./ilspy} file just provides us with another way of writing Lispy
+  code. Instead of reading files and executing them, this allows us to write
+  our code interactively, executing and evaluating the code on the fly, statement
+  by statement, always observing the return value for each line you write. This is
+  excellent for quickly getting used to the language and debugging code. (This
+  file also runs in the command line).
+
+  \graph{repl_lispy}{This is the actual Lispy files that implements the REPL.}
+  The behaviour of a REPL and it's implementation was already discussed in \ref{repl}.
+
   \subsection{Lexerical Analysis \& Tokenisation}
+    The core concepts of lexical analysis have been outlined in \ref{lexing},
+    so we'll only be discussing it's implementation here.
+
     \subsubsection{Matching through Regular Expressions}
+      The first thing we need to lay out in our lexer, is precisely what kind of
+      tokens are allowed to exist (and will subsequently understood by the parser)
+      and how we match them, i.e. how we identify them and collect them.
+
+      This can be done through the application of regular expression (again
+      discussed in \ref{lexing}). The regular expressions we'll be using are
+      outlined at the top of out \code{lexing.py} file:
+      \graph{lexer_regex}{The set of regex matchable tokens. (\code{/lispy/lexing.py})}
+      Some of these really don't require regular expressions, and are in fact
+      not matched using them, but I left them there so in order to outline
+      what sort if tokens exist.
+
+      Most of the regular expressions are quite self explanatory, but I'd like
+      to through a few of them.  The first thing I want to bring your attention
+      to are the ``\code{\char`\\A}'' at the beginning of each regex, these
+      simply tell the regex compiler that we'll only like to be matching things
+      from the \emph{very beginning} of the string, as opposed to anywhere in
+      the string or at the beginning of each line or something else.
+
+      You may notice that both atoms and symbols use the same `identifier' string
+      for matching, this makes sense as they are indeed both identifiers, and
+      will both need to match against things such as letters, underscores, dashes
+      and other special symbols (an extended word type) listed in the string.
+      You can also see that numerals are only allowed in identifiers
+      if an only if preceded by an extended word type.  Atoms may also have a
+      number anywhere in them, given that they start with a colon of course.
+
+      \clearpage
+
+      Numerics are matched with what may be a surprisingly long expression, and
+      that is because it allows numerals with different bases: hexadecimal, octal and binary;
+      and also allows for exponent notation, e.g.
+
+      \begin{center}
+        \begin{tabular}{lll}
+            \code{4e10}     & $\iff$  & $4 \times 10^{10}$\\
+            \code{5.3e+22}  & $\iff$  & $5.3 \times 10^{22}$\\
+            \code{345e-61}  & $\iff$  & $345 \times 10^{-61}$\\
+            \code{0b00101}  & $\iff$  & $101_2 \textrm{ or } 5_{10}$\\
+            \code{0xff}  & $\iff$  & $\textrm{ff}_{16} \textrm{ or } 255_{10}$\\
+            \code{0o771}  & $\iff$  & $771_8 \textrm{ or } 505_{10}$\\
+        \end{tabular}
+      \end{center}
+
+    \subsubsection{Tokens and Token Streams}
+      \graph{token_obj}{The quite simple token object. (in \code{/lispy/lexing.py})}
+      The token object takes in: A string identifying what kind of token it is;
+      another string of what the actual value of the token is (i.e. what we
+      matched); and a hash-map of the location that the token finds itself
+      lexically (a line number and column number, the filename, as well as the span (the length
+      of the matched string) that's computed by the constructor function itself).
+      The \code{\_\_str\_\_} method also provides a string representation of the
+      token, which will be useful for debugging.
+
+      Example usage might look something like:
+      \begin{minted}{python}
+        Token('NUMERIC', "310e-5", {
+            'line': 12,
+            'column': 4,
+            'filename': '~/scripts/some-code.lispy'
+        })
+      \end{minted}
+
+      \graph{token_stream}{The token stream, essentially a specialised list.
+      Some method bodies have been omitted for the sake of brevity.}
+      The \code{TokenStream} object allows us to manage a vector of tokens,
+      a bit like a Python iterator, by incrementing an internal instance
+      variable (\code{self.i}) keeping track of where we are in the stream, and
+      is controlled by methods such as \code{TokenStream\#next} and
+      \code{TokenStream\#back} and we can get the current token through \code{TokenStream\#current}.
+
+
+      The Lexer itself is implemented in the \code{lex} function, it takes a
+      program string and returns a \code{TokenStream} type:
+
+      \graph{main_lex}{The \code{lex} method, some lexer rules have been omitted
+      to fit in the picture.}
+
+      \graph{lex_numeric}{Using the Regular Expressions to match a numeric
+      in the Lex function.}
+
+      \subsubsection{Parentheses Balancer}
+      \graph{paren_bal}{In such a parenthesis heavy language as Lisp, a
+      parentheses balancer can be very useful.}
+
   \subsection{Parser}
     \subsubsection{Bottom-up / Shift-reduce pattern}
     \subsubsection{Preprocessing \& Macro Expansion phase}
