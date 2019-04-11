@@ -29,7 +29,7 @@ class Atomise(object):
 
 class Definition(object):
     def __init__(self, branch, table, taking, frozen):
-        self.tree = branch
+        self.tree = recursive_clone(branch)
         self.frozen = frozen
         self.table = table
         self.args = taking
@@ -154,7 +154,6 @@ def lookup_table(scope, mutable=False):
 
 def current_tables(current_scopes):
     global TABLES, FROZEN_TABLES, CALL_STACK
-    scopes = map(lambda table: table.scope, TABLES)
     tables = filter(lambda e: e.scope in current_scopes, TABLES)
     return FROZEN_TABLES + list(tables) + last_call()
 
@@ -164,7 +163,7 @@ def where_symbol(current_scopes, sym):
         if sym in t.local:
             return t
     return EX.throw(CURRENT_LOCATION,
-        'Symbol `{}\' does not exist in the current scope.'.format(
+        'Symbol `{}\' is not bound in the current scope.'.format(
             sym))
 
 # Searches with respect to scoping, starting with children.
@@ -202,7 +201,7 @@ def symbol_declared(current, ident):
     return False
 
 def is_node(node):
-    return 'value' in dir(node)
+    return issubclass(node.__class__, tree.Node)
 
 def to_type(node):
     if node is None:
@@ -262,14 +261,20 @@ def to_s(node):
         return '(yield ' + to_s(node.value) + ')'
 
     if node.type == tree.Call:
-        operands = ' '.join(map(to_s, node.operands))
+        def string(v):
+            s = to_s(v)
+            if to_type(v) == 'String':
+                return '"{}"'.format(s)
+            return s
+
+        operands = ' '.join(map(string, node.operands))
         operands = ['', ' '][len(operands) > 0] + operands
-        return '(' + to_s(node.value) + operands + ')'
+        return '(' + string(node.value) + operands + ')'
 
     return 'UNMAPED_DATATYPE[{}]'.format(node.name)
                                # Really all datatypes should have their
                                #   own return value, but just in case
-                               #   I forgot anythin, we'll return this.
+                               #   I forgot anything, we'll return this.
 
 def unquote(node):
     s = None
@@ -415,13 +420,18 @@ def _eval_macro(node):
     return evaluate(inside.value)
 
 def _scope_macro(node):
+    if len(node.operands) == 0:
+        return EX.throw(node.value.location,
+            "internal macro `scope' needs exactly 1 argument.")
     if type(node.operands[0]) is not tree.Symbol:
-        EX.throw(CURRENT_LOCATION,
-            "Only pure symbols can be given to `scope`.")
+        return EX.throw(node.operands[0].location,
+            "Only pure symbols can be given to `scope'.")
     t = where_symbol(CURRENT_SCOPES, node.operands[0].value)
+    if type(t) is not SymbolTable:
+        return t
     s = str(t)
     err.err_print(s)
-    return s
+    return tree.Uneval(tree.Call(t.name, CURRENT_LOCATION, t.scope), CURRENT_LOCATION)
 
 def _type_macro(node):
     if len(node.operands) == 0:
@@ -690,6 +700,9 @@ def _composition_macro(node):
 
 def _add_macro(node):
     args = list(map(evaluate, node.operands))
+    if len(args) == 0:
+        return EX.throw(node.value.location,
+            "Please provide at least one argument.")
     if not unity(map(to_type, args)):
         loc = CURRENT_LOCATION
         if is_node(node.value):
@@ -712,6 +725,9 @@ def all_numerics(ops):
                 + 'be of type `Numeric`!')
 
 def _sub_macro(node):
+    if len(node.operands) == 0:
+        return EX.throw(node.value.location,
+            "Please provide at least one argument.")
     all_numerics(node.operands)
     if len(node.operands) == 1:
         return -evaluate(node.operands[0])
@@ -719,21 +735,33 @@ def _sub_macro(node):
     return result
 
 def _mul_macro(node):
+    if len(node.operands) == 0:
+        return EX.throw(node.value.location,
+            "Please provide at least one argument.")
     all_numerics(node.operands)
     r = reduce(lambda a, b: a * b, map(evaluate, node.operands))
     return r
 
 def _div_macro(node):
+    if len(node.operands) == 0:
+        return EX.throw(node.value.location,
+            "Please provide at least one argument.")
     all_numerics(node.operands)
     r = reduce(lambda a, b: a / b, map(evaluate, node.operands))
     return r
 
 def _mod_macro(node):
+    if len(node.operands) == 0:
+        return EX.throw(node.value.location,
+            "Please provide at least one argument.")
     all_numerics(node.operands)
     r = reduce(lambda a, b: a % b, map(evaluate, node.operands))
     return r
 
 def _eq_macro(node):
+    if len(node.operands) < 2:
+        return EX.throw(node.value.location,
+            "Please provide at least two argument.")
     r = unity(map(evaluate, node.operands))
     return [ATOMS[':false'], ATOMS[':true']][r]
 
@@ -1009,15 +1037,15 @@ def evaluate(node):
                     #   evaluated with no reason. e.g. (eval 2)...
 
     CURRENT_LOCATION = node.location
-    if conf.DEBUG:
-        print("Current scope: {}, i.e. '{}'".format(
-            hex(CURRENT_SCOPES[-1]),
-            lookup_table(CURRENT_SCOPES[-1]).name))
-
-        print("\nAll Scope Tables: [{}]".format(', '.join(map(str, TABLES))))
-        print("\nCurrent Scopes:   [{}]".format(', '.join(map(str, CURRENT_SCOPES))))
-        print("\nCall Tables:      [{}]".format(', '.join(map(str, CALL_STACK))))
-        print("\nFrozen Tables:    [{}]".format(', '.join(map(str, FROZEN_TABLES))))
+    # if conf.DEBUG:
+    #     print("Current scope: {}, i.e. '{}'".format(
+    #         hex(CURRENT_SCOPES[-1]),
+    #         lookup_table(CURRENT_SCOPES[-1]).name))
+    #
+    #     print("\nAll Scope Tables: [{}]".format(', '.join(map(str, TABLES))))
+    #     print("\nCurrent Scopes:   [{}]".format(', '.join(map(str, CURRENT_SCOPES))))
+    #     print("\nCall Tables:      [{}]".format(', '.join(map(str, CALL_STACK))))
+    #     print("\nFrozen Tables:    [{}]".format(', '.join(map(str, FROZEN_TABLES))))
 
     # for t in current_tables(CURRENT_SCOPES):
     #     if t.name == '_main':
@@ -1100,12 +1128,12 @@ def execute_method(node, args=None):
     if not added:
         CURRENT_SCOPES.append(definition.table.scope)
 
-    call_table = clone(definition.table)
+    call_table =  clone(definition.table)
     call_table.clean()
     call_table.give_args(args)
     CALL_STACK.append(call_table)
 
-    # Aaaaand then we finally actually male the call...
+    # Aaaaand, then we finally, make the call...
     result = definition.call()
     # Back to cleaning up our Symbol tables.
 
@@ -1141,7 +1169,7 @@ def visit(AST, pc=0, string=None):
         return EX.throw(CURRENT_LOCATION,
             'Recursion level too deep!\n'
             + 'You might have an infinite loop somewhere,\n'
-            + 'or your recursing over something too many times.\n\n'
+            + 'or you\'re recursing over something too many times.\n\n'
             + 'python      call-stack depth:  {},\n'.format(conf.RECURSION_LIMIT)
             + 'interpreter call-stack depth:  {}.'  .format(len(CALL_STACK)))
     if conf.RECOVERING_FROM_ERROR:
@@ -1155,7 +1183,6 @@ def walk(AST):
     EX = err.Thrower(err.EXEC, AST.file)
     if not symbol_declared(CURRENT_SCOPES, '$PRELUDE_LOADING'):
         main_table = lookup_table(0x0)
-        main_table.bind('$PRELUDE_LOADING', ATOMS[':true'])
 
         here = os.path.dirname(os.path.abspath(__file__))
         load_file(here + '/../prelude/prelude.lispy')

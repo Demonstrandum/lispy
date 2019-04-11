@@ -1,0 +1,11 @@
+(define (fact n) (do
+	(let (i n) (r 2))
+	(until (= i 2) (do
+		(mutate (r (* r i)))
+		(-1 i)
+	))
+	(yield r)
+))
+
+(fact 15)
+(puts _)

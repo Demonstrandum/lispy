@@ -1,0 +1,7 @@
+(define (deep x)
+	((lambda (i j)
+		((lambda (k l)
+			((lambda (m n)
+				(puts n)) k l )) i j )) x x ))
+
+(deep :gello)

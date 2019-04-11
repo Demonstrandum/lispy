@@ -1,9 +1,15 @@
-(let (i 0))
+(define macro (ten-times sym body) (do
+  (let (sym 0))
+  (iterate (do
+    (mutate (sym (+ (eval sym) 1)))
+    (if (> (eval sym) 10) break)
+    (eval body)))
+  (delete sym)))
 
-(until (= i 10) (do
-  (puts i)
-  (mutate (i (+ i 1)))))
 
-(-> (+ %1 %2 %3 %4))
-(_ 5 5 5 5)
+(ten-times counter (do
+  (puts counter)))
+                     ;;       vvv  --- UNDERSCORE
+(-> (+ %1 %2 %3 %4)) ;; Here, `_' just means the return value of the
+(_ 5 5 5 5)          ;;   last statement that has been evaluated.
 (puts (string "5*4 =" _))

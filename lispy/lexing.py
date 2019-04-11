@@ -39,9 +39,12 @@ class Token(object):
         self.location['span'] = len(string) + [0, 2][self.type == 'STRING']
 
     def __str__(self):
-        return "<Token({}) '{}'>".format(
+        return "<Token({}) '{}' ({}:{}) [span: {}]>".format(
             self.type,
-            self.string
+            self.string,
+            self.location['line'],
+            self.location['column'],
+            self.location['span']
         )
 
 EOF_TOKEN = Token('EOF', EOF)
@@ -158,6 +161,8 @@ def paren_balancer(stream):
     if len(stack) != 0:
         location = stream.tokens[-2].location
         message = 'Missing {} closing parentheses...'.format(len(stack))
+    elif close - opens < 1:
+        message = 'Invalid arrangement of parentheses, this means nothing.'
     return {
         'balanced': balanced and len(stack) == 0,
         'location': location,
@@ -275,6 +280,7 @@ def lex(string, file, nofile=False):
             contents = '"' + contents + '"'
             stream.add(Token('STRING', ast.literal_eval(contents), loc))
             i += j + 1
+            column += 2
             continue
 
         # Match an atom

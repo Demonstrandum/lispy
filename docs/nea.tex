@@ -8,6 +8,19 @@
 \usepackage{fontenc}
 \usepackage{fontspec}
 \usepackage{pmboxdraw}
+
+\begingroup
+  \def\DeclareUnicodeCharacter#1{%
+    \begingroup
+      \lccode`\~="#1\relax
+    \lowercase{\endgroup
+      \global\catcode`~=\active
+      \gdef~%
+    }%
+  }%
+  \input{pmboxdrawenc.dfu}%
+\endgroup
+
 \usepackage{textcomp}
 \usepackage{pmboxdraw}
 \usepackage{varwidth}
@@ -65,18 +78,28 @@
 \end{minipage}}
 \makeatletter
 
-\newcommand{\graph}[2]{
+\usepackage{xparse}
+
+\NewDocumentCommand{\graph}{ m m O{17cm} } {
   \begin{figure}[H]
     \centering
-    \includegraphics[width=\textwidth,height=17cm,keepaspectratio]{#1}
+    \includegraphics[width=\textwidth,height=#3,keepaspectratio]{#1}
     \caption{#2}
   \end{figure}
 }
 
+% \newcommand{\graph}[2]{
+%   \begin{figure}[H]
+%     \centering
+%     \includegraphics[width=\textwidth,height=17cm,keepaspectratio]{#1}
+%     \caption{#2}
+%   \end{figure}
+% }
+
 \newcommand{\under}[1]{\centerline{\footnotesize{#1}}}
 \newcommand{\super}{\textsuperscript}
 \newcommand{\numero}{N\super{\underline{o}}}
-\newcommand{\etc}{{\&}ct.}
+\newcommand{\etc}{{\&}c.}
 \newcommand\blfootnote[1]{%
   \begingroup
   \renewcommand\thefootnote{}\footnote{#1}%
@@ -724,7 +747,7 @@
       \code{stream} list, with the appropriate type and matched string supplied
       with it.
 
-    \subsubsection{Generating an Abstract Syntax Tree}
+    \subsubsection{Generating an Abstract Syntax Tree}\label{ast}
       Now that we have our list of tokens, the next step is to take those tokens
       and reconstruct the program as a tree.  The tree introduces important
       concepts back into the structure of the program.  Things such as nesting
@@ -1099,6 +1122,8 @@ evaluate (node) =>
   creative name, and no doubt a name that's (probably) been used before, by someone else
   writing their Lisp in Python.
 
+  \clearpage
+
   The file structure of the repository is easy to follow and looks like this:
   \graph{files}{Repo. file structure.}
 
@@ -1223,29 +1248,1407 @@ evaluate (node) =>
       \graph{lex_numeric}{Using the Regular Expressions to match a numeric
       in the Lex function.}
 
+      Above, we can see we assign our match variable, to a potential match
+      between a numeric, and the current stage our code is at. If that match
+      happened to return a valid match, and not \code{None}, we'll create a new
+      numeric token, with type \code{'NUMERIC'} and the matched string, which is
+      returned by \code{match.group()}. Location of the token is given by the
+      current \code{line} and \code{column} variables, \code{filename} is also
+      passed into the dictionary. We need to advance the character pointer
+      (\code{i}) by the size of the matched string, and increment the
+      \code{column} variable by the same amount too.
+
       \subsubsection{Parentheses Balancer}
       \graph{paren_bal}{In such a parenthesis heavy language as Lisp, a
       parentheses balancer can be very useful.}
 
-  \subsection{Parser}
-    \subsubsection{Bottom-up / Shift-reduce pattern}
-    \subsubsection{Preprocessing \& Macro Expansion phase}
-  \subsection{Interpreter/Evaluator}
-    \subsubsection{Recursive decent evaluation}
-    \subsubsection{Visiting \& Walking the tree}
-    \subsubsection{Loading external files / Require statement}
-  \subsection{All Internal Macros}
-  \subsection{Debugging / Verbose Mode}
-  \subsection{Prelude / Standard Library for the language}
-  \subsection{Implementing a REPL}
+      The paren-balancer essentially counts the amount of open parens, and tells
+      you if you have too many or too few parentheses. If you have enough opens
+      vs. closing parentheses, but have arranged them in an illogical manner
+      (e.g. ``\code{)(}''), it will end up with a negative open vs. close
+      count, and tell you, you have an issue with how you've arranged your
+      parentheses.
 
-\section{Documentation / Language Specification \& User Guide}
+  \subsection{Parser}
+    The parser for many Lisps is a relatively simple stage when compared to other
+    programming languages.  This fact is due to Lisp's use of parentheses and
+    Polish notation, eliminating the need for some of the \emph{harder} parts
+    of parsing more natural languages, such as operator precedence and such.
+
+    Everything in Lisp is either atomic, i.e. a datum, or a list, which makes
+    constructing the parse tree, even simpler.
+
+    The parser when I was writing the code was only about 42 lines of code
+    for a long while, and was entirely functional, complete with error handling
+    and everything. Now the parser is ca. 240 lines of code, and that was
+    because at some point, I finally added macros to the language, adding a lot
+    of search and replace complexity to the parsing stage when expanding macros.
+
+    The main components that constitute the parse-tree data structure and
+    the token to parse-tree converter (i.e. `the parser') are defined across two
+    files: \code{/lispy/tree.py} and \code{/lispy/parsing.py}.
+
+    \clearpage
+
+    \subsubsection{Abstract Syntax Tree}
+      The syntax tree (`Abstract Syntax Tree' $\Rightarrow$ `AST'), is described
+      in terms of its components/nodes/branches/leaves in the \code{/lisp/tree.py}
+      file, containing a number of classes and abstract classes describing it.
+      The classes have variables used to hold the node's value and node-type,
+      but also methods such as \code{\_\_str\_\_} which also provide a visual
+      representation of the tree and its nodes, which has actually been quite
+      helpful through debugging.
+
+      The first class is \code{Tree} which is essentially a wrapper for a generic
+      Python list, in fact, the class inherits the list type/class, so it inherits
+      all your normal Python list functionality, with the addition of a new
+      \code{\_\_str\_\_} method; a variable called \code{self.file} that keeps
+      track of which file that AST comes from, and an alias for Python's
+      \code{self.append} called \code{self.push}, just so I can keep a consistent
+      naming of methods. The code for it looks like this:
+
+      \graph{ast_Tree}{Defined at the top of \code{/lispy/tree.py}}
+
+      Most of the code here is trivial except from perhaps the the string
+      representation method, which uses special Unicode characters (denoted by
+      the \code{'\char`\\u\#\#\#\#'} strings) to draw special box-drawing
+      characters\footnote{\url{https://en.wikipedia.org/wiki/Box-drawing_character}}
+      which help draw the branches and trunk of the AST, in character
+      represented form.
+
+      \clearpage
+
+      The next three classes / node definitions are three abstract classes,
+      not meant to be used directly, but to be inherited from.
+      The first one is actually a doubly abstract class, as the next two
+      abstract classes inherit from that one.  The first class is just called
+      \code{Node}, and it is the mother-class of all subsequent possible
+      AST elements, it just describes/outlines the basic behaviour of any node.
+      It is described as such:
+
+      \graph{tree_Node}{All nodes have at least: a type; a value; and a name.}
+
+      The \code{TAB = ' ' * 3} at the top just means that a tab will be the
+      equivalent of three spaces, when representing the AST/Nodes.
+
+      We can see the node also implements a string representation method, using
+      the same box-drawing characters to denote belonging of certain values.
+
+      The \code{self.value} variable will hold the value for the node, say for
+      example \code{5} for a Numeric node, or \code{"Hello!"} for a String node.
+      \code{self.type} is the classe's own type, which is in this case \code{Node}, and
+      that type is Python given, and accessed though the inherent \code{self.\_\_class\_\_}
+      variable that exist in every class. The next variable (\code{self.name})
+      is related, but provides a string representation of the type (in this
+      case \code{'Node'}). This is done by calling \code{str(...)} on the class-type
+      variable, but, this will include super-classes, and namespaces, separated
+      by dots, so the \code{str} method actually yields something like:
+      \code{"<class 'lispy.tree.Node'>"}, so we just split the string by the dots, and
+      pick the last element, and the ignore the two last characters
+      (the ``\code{'>}''), to give us \code{'Node'}.
+
+      \clearpage
+
+      The \code{Operator} class is the second abstract class and inherits from
+      \code{Node}, it is probably the most complicated looking thing in the
+      \code{/lispy/tree.py} file, but that's just because of its complicated
+      string representation.  The \code{Operator} class describes all nodes in
+      the language that can have multiple children (i.e. function calls). The
+      \code{Operator} class looks like this:
+
+      \graph{tree_Operator}{Inherits from \code{Node}.}
+
+      \code{Operator} still has the normal \code{Node} variables, but with a few
+      extra. First of all, the \code{self.value} now represents the head of the
+      list, thats to say, the callee of the function (the operator itself)
+      if this were a function call (i.e. it's not unevaluated). The operands
+      to the call, (i.e. the tail of the list)  is, well, \code{self.operands}.
+      \code{self.shorthand} is set to \code{None}, and basically indicates
+      whether this call is a shorthand-lambda, that's to say it's arguments are
+      implicit and listed by numerals, more on this concept later. Finally,
+      we have a new \code{self.location} variable which just hold information
+      on where this node corresponds to in the file (line number, span, column, \etc),
+      which will be very helpful if we need to throw errors.
+
+      The \code{\_\_str\_\_} method was put together very
+      quickly, as I didn't want to spend too long working on just the small
+      step of the parser, that is trying to represent the AST as a string, it
+      works by, again, using a number of box-drawing characters and calling
+      the string methods on all its children, and creating something resembling
+      a tree.  If I had more time to implement the visualisation this is certainly
+      code that I would improve/re-write.  It made sense when I wrote it, not
+      so much anymore, more than anything its messy.
+
+      Finally, onto our last abstract class, the \code{Data} class:
+
+      \graph{tree_Data}{Abstract node class for all atomic datatypes (any datum)}
+
+      \code{Data} is almost no different from \code{Node}, except now it's also
+      got a location variable.
+
+      Let's now look at the child classes that use these two abstact classes:
+
+      \graph{tree_Nodes}{All child nodes all either inherit from \code{Operator}
+      or \code{Data}.}[9cm]
+
+      The only class that inherits from \code{Operator} is \code{Call}, this
+      could change in future versions of the language (?), but really, this
+      is the only one we need in a relatively standard Lisp-style language.
+      We've implemented the nodes for the basic LISPY datatypes (\code{Numeric},
+      \code{Symbol}, \code{Atom}, \code{String}, and the slightly
+      more special, \code{Uneval}, \code{Yield}). However, we're missing nil,
+      and since \code{Nil} doesn't really hold any value other than just being
+      nil (nil just represents the absence of a value), it is not inherited from
+      \code{Data}, nor \code{Operator}. Nil is just defined as:
+
+      \graph{tree_Nil}{\code{Nil} type AST node.}
+
+      That concludes the \code{/lispy/tree.py} file, these components will be
+      vitally important in not only parsing, but when visiting the AST for
+      evaluation of the tree.
+
+      In the \code{/lispy/tree.py} we will actually be assembling the AST together
+
+    \subsubsection{Bottom-up / Shift-reduce Pattern}
+      Our parser will be implemented as a bottom-up parser, generating the
+      leaves of the AST and working our way inwards towards the roots. This has
+      been discussed more in depth in section \ref{ast}.
+
+      We need to import all our older files, in order to use the functionality
+      we've so far implemented, and define some useful variables, like what
+      an EOF is and the error handler, which I'll go through later and a simple
+      numerical parser, which converts strings to actual Python integers. These
+      are all just meta-utilities:
+
+      \graph{parser_header}{Header of the \code{/lispy/parsing.py} file.}
+
+      Let's look at the bottom of the file, where the parser is actually
+      defined:
+
+      \graph{parser_parse}{The simple parser loop.}
+
+      The \code{parse} function takes in a stream and
+      starts out by defining the \code{EX} variable for
+      throwing exceptions in case of bad code, and purges useless tokens from
+      the stream. If we have no AST variable defined, \code{parse} will define
+      it with an empty tree.
+
+      We define the \code{parse\_loop} function, which steps through the stream,
+      using \code{stream.next()} and at each time it encounters a parsable token,
+      it calls \code{atom} on it. If it has reached an EOF token, it will know
+      its reached the \underline{e}nd \underline{o}f the \underline{f}ile.
+      The function calls itself recursively to advance to the next token.
+      The function ultimately returns the fully-grown AST.
+
+      The \code{atom} function is where all the shift-reduce functionality of
+      the parsing actually lies. No, the name has nothing to do with the datatype
+      in our language called atoms, it simply means it parses atomic data, however
+      this is now untrue, after I added the \code{Call} type parsing capability
+      to it, I just never came up with another name. It is defined as such:
+
+      \graph{parser_atom}{Parses atomic data and function calls, line 190 in
+      \code{/lispy/parsing.py}.}
+
+      The \code{atom} function is relatively simple, if it finds a number, it
+      will return a Numeric Node, and so on for all the other types, if it finds
+      an \code{L\_PAREN} token, it will search for the corresponding \code{R\_PAREN}
+      token. While going looking for the \code{R\_PAREN} it will recursively call
+      \code{atom} on all the tokens in between, pushing them all to an array.
+      When it finds the \code{R\_PAREN}, it will create a \code{Call} node and
+      add all its children to it, finally returning the \code{Call} node.
+
+
+    \subsubsection{Preprocessing \& Macro Expansion Phase}
+      This phase was actually added \emph{after} I had finished the interpreter,
+      and a lot of the Prelude library.  It is responsible for simply finding
+      macro definitions (macro definitions are very similar to C's \code{\#define}
+      preprocessor directive) and searches for calls with the same symbol as the
+      definition. The code for this is as follows:
+
+      \graph{parser_pre}{The preprocessor function, it tries to expand any
+      macros found in each branch of the syntax tree.}
+
+      \graph{parser_macroexpand}{The macro expansion function defines a way of
+      searching the tree and replacing any invocation of a macro with a proper
+      expansion}
+      The method seems pretty heavy, but really all it is, is a search and replace.
+      When a macro is being called upon (e.g. \code{(my-macro 3 4)}), we look through
+      our macro dictionary (\code{MACROS}) and if we find that it is indeed a macro,
+      we replace it with an invocation of that macro (e.g.
+      \code{MACRO['my-macro'].invoke(3, 4)}, you can see this happening on line
+      134 of \code{parsing.py}).  Of course, when we have a macro called
+      \code{my-macro}, that takes two arguments, say \code{x} and \code{y}, we
+      need to, again, search and replace all instances of \code{x} and \code{y}
+      with their invoker's parameters, (3 and 4 respectively in our last example).
+
+      So far we've been talking about the macros in the \code{MACROS} dictionary
+      as some unknown object with methods such as \code{.invoke(...)} implemented
+      in them and all sorts. Let's actually have a look at the definition of that
+      \code{Macro} object, at the top of our \code{parsing.py} file:
+
+      \graph{parser_macro-obj}{The macro object class and it's methods.}
+      The \code{Macro} object has a few important instance variables, and an
+      invoke method, which we discussed earlier. How the invoke function works,
+      is it takes in the parent call object of the actual invocation, checks through
+      the argument list of the call, and will use those arguments to replace their
+      corresponding usage in the body of the macro.  First of all we will check
+      the length of the argument list of the parent call, and check the length of
+      its internal list of arguments, and check if they have the same length.
+      If they do have the same length, we create a name map of the arguments, and
+      have them map to their corresponding invoker arguments, so that we can then
+      go through the macro body and replace those symbols with the correct expressions
+      we passed in.
+
+      An example of this could be a macro define as such:
+
+      \begin{minted}{lisp}
+        (define macro (sum-and-add-one a b)
+          (+ a b 1))
+
+        (print (sum-and-add-one (+ 3 1) 5))
+      \end{minted}
+
+      after expansion, this code would be directly equivalent to:
+
+      \begin{minted}{lisp}
+        (print (+ (+ 3 1) 5 1))
+      \end{minted}
+
+      Hopefully this shows how macros are really just text replacement.
+
+
+  \subsection{Interpreter/Evaluator}
+    Finally onto the interpreter, the thing that will actually evaluate and
+    reduce our code into our desired results.
+
+    There are many options I could have gone with here, first of all, you might
+    wonder, why an interpreter and not a compiler for example?  Well, the first
+    reason for that is that my Lisp dialect is dynamically typed, making it
+    hard to compile, as usually compiled languages do all their type checking at
+    compile time as opposed to at runtime, with dynamically typed languages.
+    Unless we secretly implement static typing through use of
+    type inference, but that would still limit our language in other ways.
+
+    The second reason for making it not compiled, is that I would have spend
+    a lot of time, reducing the AST into a stream of CPU-architecture specific
+    machine-code, which would not only be a large task, but would include me
+    having to learn x86-64 assembly language, and even then, it would only
+    work on \emph{some} CPUs.
+
+    Hence, I chose to go interpreted, in which case I had (in general) one of
+    two options, an AST traversing interpreter or a bytecode assembler with
+    a corresponding virtual machine.
+
+    My interpreter ended up being a single pass AST visitor, which executes as it
+    walks down the tree. This is slower then compiling for a virtual machine,
+    but having to build a virtual machine, a load of instructions and reducing the
+    AST to the VM specific bytecode instructions would be a much larger task, and likely
+    not something I could complete in time for this NEA.
+
+    \subsubsection{Recursive Decent Evaluation}
+      %% Talk about mutually recursive functions.
+      The phrase `recursive decent' is usually used to describe a certain type
+      of top-down parser, but I feel it also describes, and works in an analogous
+      fashion to my interpreter.
+
+      The interpreter is defined as a set of mutually recursive functions,
+      all starting from a little loop which calls the evaluate function on
+      each branch of the AST, which itself calls a load of other functions which
+      help evaluate certain things (mostly these are the internal macros) which
+      then \emph{again} call the evaluate function, evaluating other
+      sub-expressions. This results in the evaluator evaluating the innermost
+      expressions first before it can fully evaluate the parent-expressions.
+
+
+    \subsubsection{Visiting \& Walking the Tree}
+      First let's have a look at the entry-point functions of the interpreter:
+
+      \graph{interp-visit}{The \code{visit} function, goes through each branch and
+      evaluates each of them. Defined in \code{/lispy/visitor.py} on line
+      \code{1126}.}
+
+      The first thing we see, is that the AST has any potential macros expanded
+      before we do anything with it. We make sure all our global variables are
+      set up for the execution process, and then we evaluate the branch of the
+      AST found at index location `\code{pc}'. The \code{evaluate} call is wrapped
+      in \code{try} statement which is set up to catch any \code{RecursionError}
+      that may be thrown, due to the maximum recursion depth being exceed (LISPY
+      doesn't have any tail-call optimisation and every recursive function call
+      in LISPY is equivalent to a recursive call in Python, both of which are
+      unfortunate scenarios and something I'd fix in future iterations of the
+      language).
+
+      \graph{interp-walk}{The \code{walk} method calls \code{visit}, while
+      also doing some extra work, such as loading in the prelude library
+      for the first time}
+
+      \clearpage
+
+      The \code{evaluate} method is at the centre of all execution in the
+      interpreter.
+
+      \graph{interp-eval}{The \code{evaluate} method takes any AST node
+      / subtree and evaluates it, or, in the case of a fully evaluated
+      atomic datum being passed in, it will simply return it back again.}
+
+      The method simply takes in a node, and runs through a plethora of
+      if-statements and returns an evaluation depending on what type of data
+      you passed in, often calling itself recursively.
+
+      When evaluating a symbol, it first looks through the dictionary of known
+      internal macros, if it isn't an internal macro, it will look through the
+      known symbol tables of the current scopes and return the value bound to it
+      in the table it was found in. A similar thing happens when it tries to
+      evaluate an atom, if the atom already exists, it'll return the uniquely
+      hashed \code{Atomise} object, otherwise, it'll add a new one.
+
+      If the evaluator encounters a \code{Call} type object, it will call the
+      `\code{execute\_method}' method:
+
+      \graph{interp-exec}{\code{execute\_method} is responsible for managing
+      the symbol tables of a method call and the call stack,
+      before and after evaluation.}
+
+      This method has many edge cases to consider, like the method called being an
+      internal macro for example, but ultimately it is meant to manage the calls
+      symbol tables before and after calling.  First it evaluates the caller, if the
+      caller evaluated to a \code{Definition} object, that means it is a valid
+      function call (a call to, say, the number three \code{(3)}, would throw an error,
+      as we cannot call a number).  The \code{Definition} object has the methods
+      corresponding symbol table, which will be pushed onto the call stack, so that
+      any local variables and arguments bound inside the function scope can be accessed.
+      Once this is done we call the \code{Definition} object's \code{call} method, which
+      clones the function body and calls, once again, the \code{evaluate} method on it.
+      Once this is finished, we pop off the call stack, and any frozen super-scope tables
+      we might have added, and return the result of the evaluation, i.e. the result of
+      \code{definition.call()}.
+
+      \clearpage
+
+      So far we've mentioned a number of objects and classes needed for our above, code.
+      Namely, the \code{SymbolTable}, \code{Definition} and \code{Atomise} class.
+
+      \graph{interp-Def}{The \code{Definition} class.}
+
+       The class responsible for packaging method definitions must hold:
+       \begin{itemize}
+         \item The method's parameter list.
+         \item The method body.
+         \item A refrence to the symbol table
+       \end{itemize}
+
+       The class also has a method, which clones the method body and evaluates it.
+
+       \clearpage
+
+       \graph{interp-Atom}{\code{Atomise} class.}
+
+       The \code{Atomise} class has little functionality, it is simply a wrapper.
+       It ensures that all atoms in LISPY have the same memory reference, and importantly
+       the same hash.
+
+       \clearpage
+
+       \graph{interp-SymTab}{The \code{SymbolTable} class, holds any local variables
+       existing within a specific scope.}
+
+       This class is one of the more complex ones, yet quite straight forward in
+       its functionality.  It holds a \code{scope} instance variable, which is an integer,
+       which is a way to facilitate looking up tables, and they are linked to the hash
+       of the parent node the scope encompasses in the AST. It has a \code{name}, linked
+       to the name of the function the scope is for; a \code{local} variable, which
+       is a dictionary of local variables; \code{mutables} is a list of variable names
+       which are allowed to be mutated; \code{args} is a list of which locals are
+       exist as function arguments; \code{frozen} is a Boolean, signifying whether the
+       table is allowed to be altered in any way.
+
+       Description of notable methods:
+       \begin{itemize}
+         \item \code{bind} --- Sets a variable in the table, takes name and a corresponding
+         value.
+         \item \code{declare} --- Tells the table that a certain variable exists, and
+         will soon be bound.
+         \item \code{declare\_args} --- Informs the table of what arguments its corresponding
+         function will have.
+         \item \code{give\_args} --- Gives the table the function arguments upon an invocation.
+         Here it will also check for the correct number of arguments.
+         \item \code{clean} --- Will empty the table of variables, and get it restore it to
+         how it was formaly, ready for second use.
+       \end{itemize}
+
+
+       \clearpage
+
+
+
+    \subsubsection{Loading External Files / Require Statement}
+      LISPY has a \code{(require :folder/name-of-file)} statement for importing, parsing,
+      and executing files other than the current file being interpreted.
+
+      This requiring of other files is actually done secretly every time you run the interpreter,
+      by requiring the prelude library, for all the basic language functionality.
+      You can imagine this as a secret \code{(require :\$LISPY\_INSTALL/prelude/prelude)}
+      happening at the top of the file your executing. This is similar to the \code{std}
+      (standard) library in C or C++.
+
+      This require statement is implemented as:
+      \graph{interp-load_file}{Loads external \code{.lispy} files.}
+
+      which is then used by the \code{require} (\code{\_require\_macro}) internal macro:
+
+      \graph{interp-req}{Parses file-paths and calls \code{load\_file} on them.}
+
+      \clearpage
+
+
+
+  \subsection{All Internal Macros}
+    An internal macro is just like any LISPY macro, except it's written in and
+    interfaces with the implementation language (Python).
+
+    All the internal macros are listed in a global dictionary in the \code{visitor.py}
+    file, where each key is the macro name and the corresponding value is a
+    reference to the Python function that implements the macro.
+
+    The list of macros is found at line \code{968} and is, as of current, the
+    following:
+
+    \begin{minted}{python}
+    MACROS = {
+        'do': _do_macro,
+        'prog': _do_macro,
+        'yield': _yield_macro,
+        'require': _require_macro,
+        'eval': _eval_macro,
+        'scope': _scope_macro, # < Mostly for debugging.
+        'type': _type_macro,
+        'name': _name_macro,
+        'if': _if_macro,
+        'unless': _unless_macro,
+        'list': _list_macro,
+        'size': _size_macro,
+        'index': _index_macro,
+        'iterate': _iterate_macro,
+        'push': _push_macro,
+        'unshift': _unshift_macro,
+        'concat': _concat_macro,
+        'concat!': _concat_des_macro,
+        'pop': _pop_macro,
+        'shift': _shift_macro,
+        '<>': _composition_macro, # < Neat, isn't it?
+        '+': _add_macro,
+        '-': _sub_macro,
+        '*': _mul_macro,
+        '/': _div_macro,
+        '%': _mod_macro,
+        '=': _eq_macro,
+        '/=':_nq_macro,
+        '!': _ne_macro,
+        '&&': _and_macro,
+        '||': _or_macro,
+        '^^': _xor_macro, # < Not a common one.
+        '<': _lt_macro,
+        '>': _gt_macro,
+        '<=':_le_macro,
+        '>=':_ge_macro,
+        'string': _string_macro,
+        'repr': _repr_macro,
+        'ast': _ast_macro, # < Mostly for debugging.
+        'out': _out_macro,
+        'read': _read_macro,
+        'puts': _puts_macro,
+        'let': _let_macro,
+        'delete': _delete_macro,
+        'mutate': lambda node: _let_macro(node, mutable=True),
+        'λ': _lambda_macro,
+        '->': _shorthand_macro,
+        'define': _define_macro,
+    }
+    \end{minted}
+
+    \clearpage
+
+    The implementation of each internal macro will take a long time to go over,
+    so I'll leave their implementations and their helper functions out of this
+    document, so if you need to refer to their implementation, see
+    \code{/lispy/visitor.py} on line \code{343} to line \code{966}.
+
+    An outline of what each  internal macro does will be outlined in the
+    following subsections of this subsection:
+
+    \subsubsection{\code{do} \& \code{prog}}
+      Takes a variadic amount of arguments, each argument is executed
+      subsequently, essentially allowing you to just chain multiple
+      statements together as a block.
+
+    \subsubsection{\code{yield}}
+      Allows you to \emph{return} or \emph{yield} from a function.
+      This is only useful if you're inside a \code{do} block and want
+      to return early.
+
+    \subsubsection{\code{require}}
+      Takes in any number of \emph{name nodes}, which is either:
+      \begin{itemize}
+        \item An Atom
+        \item A string
+        \item An unevaluated symbol.
+      \end{itemize}
+
+      The name node will we read as a file path, and loaded in to the program.
+
+    \subsubsection{\code{eval}}
+      Takes a single argument.  It will evaluate anything that was
+      previously unevaluated. If already evaluated, it will do nothing and
+      return its argument.
+
+    \subsubsection{\code{scope}}
+      Takes exactly one symbol, will return a list containing the name of the
+      scope, and the scope hash for the scope that the given symbol finds
+      itself in.
+
+    \subsubsection{\code{type}}
+      Takes in one argument of any type, and returns an atom with the name
+      of the type of the evaluated argument that was passed in.
+
+    \subsubsection{\code{name}}
+      Converts any name node into an atom with the same \emph{name}.
+
+    \subsubsection{\code{if}}
+      An if statement takes 2 or 3 arguments. The first argument is the
+      condition, the second the consequence, and the third (if given)
+      is the alternative (if-this-then-that-otherwise-that).
+      The first argument must evaluate to something true or false,
+      if the first argument is true the second argument gets evaluated,
+      if not, the third argument gets evaluated (if it exists).
+
+    \subsubsection{\code{unless}}
+      The very same as the if statement, except it negates the condition,
+      and proceeds as normal.
+
+      \begin{minted}{lisp}
+        ;; The following statements are equivalent:
+
+        (if (/= a b)
+          (puts "a and b are different")
+          (puts "a and b are the same"))
+
+        (unless (= a b)
+          (puts "a and b are different")
+          (puts "a and b are the same"))
+      \end{minted}
+
+    \subsubsection{\code{list}}
+      Creates a list of all it's arguments, this is similar to the
+      quote, but here all the arguments get evaluated.
+
+    \subsubsection{\code{size}}
+      Takes in a single list or string, returns the length of the
+      elements.
+
+    \subsubsection{\code{index}}
+      Takes exactly two arguments, the first argument is a signed
+      integer that represents an index number of the array starting from
+      zero, negative indices represent accessing elements from the end of
+      the list.
+
+    \subsubsection{\code{iterate}}
+      Takes a single statement and executes it over and over again, forever.
+      The loop can only be broken if a the statement evaluates to a \code{break}.
+
+    \subsubsection{\code{push}}
+      Takes two arguments, the first one can be anything, and the second
+      one needs to be a list.  The fist argument will be appended to the
+      the end of the list.
+
+    \subsubsection{\code{unshift}}
+      Same as push, instead it prepends to the list as oppsed to
+      appending.
+
+
+    \subsubsection{\code{concat}}
+      Takes any number of lists or strings and merges them together as
+      a new list or string.
+
+    \subsubsection{\code{concat!}}
+      The exclamation mark at the end signifies that the method is
+      destructive. This works the same as \code{concat} but the first
+      argument must be a symbol, and that symbol will be mutated to
+      the result of the concatenation.
+
+    \subsubsection{\code{pop}}
+      Removes the last element from the list that is passed in.
+
+    \subsubsection{\code{shift}}
+      Removes the first element from the list that is passed in.
+
+    \subsubsection{\code{<>}}
+      Takes in any number of arguments, all of which \emph{must} evaluate
+      to \emph{functions}, these functions will be composed together.
+
+      For example:
+      \begin{minted}{lisp}
+        (f (g (h (i (j (k x y)))))) ;; read: f of g of h of i of j of k of x and y.
+        ;; This can be better written as a composition.
+        ((<> f g h i j k) x y) ;; Far fewer parentheses, easier to read, and shorter.
+      \end{minted}
+
+    \subsubsection{\code{+}}
+      Takes any number of all numbers or all strings and adds
+      them all together.
+
+    \subsubsection{\code{-}}
+      Takes any number of numbers and finds their difference.
+
+    \subsubsection{\code{*}}
+      Takes any number of numbers and finds their product.
+
+    \subsubsection{\code{/}}
+      Takes any number of numbers and finds their quotient.
+      Will always return a float no matter what type the arguments are,
+      unless the numbers divide each other evenly.
+
+    \subsubsection{\code{\%}}
+      Takes any number of numbers and returns their modulo.
+
+    \subsubsection{\code{=}}
+      Will check if all its arguments are equal to each other.
+
+    \subsubsection{\code{/=}}
+      Will check if at least one of its arguments are not equal
+      to the rest.
+
+    \subsubsection{\code{!}}
+      Negates the \emph{one} argument given.
+
+    \subsubsection{\code{\&\&}}
+       Checks if all arguments evaluated to something \emph{truthy}.
+
+    \subsubsection{\code{||}}
+      Checks if at least one argument or more are truthy.
+
+    \subsubsection{\code{\^\^}}
+      Checks if an even number of arguments are truthy (XOR --- Exclusive Or).
+
+    \subsubsection{\code{<}}
+      Checks if each subsequent argument is less than the last.
+
+    \subsubsection{\code{>}}
+      Checks if each subsequent argument is greater than the last.
+
+    \subsubsection{\code{<=}}
+      Checks if each subsequent argument is less than or equal the last.
+
+    \subsubsection{\code{>}}
+      Checks if each subsequent argument is greater than or equal the last.
+
+    \subsubsection{\code{string}}
+      Tries it best to convert its argument into a string
+      representation.
+
+    \subsubsection{\code{repr}}
+      Converts a string to its unescaped version.
+
+      e.g. It would return the string backslash `n' (``\char`\\n'') when
+      given a string with a new-line in it.
+
+    \subsubsection{\code{ast}}
+      Returns a string representation of the unevaluated syntax tree
+      of the argument you passed in.
+
+    \subsubsection{\code{out}}
+      Will print the string representation of any number of arguments
+      passed into it, with no seperation between the strings and no
+      trailing new line appended implicitly to STDOUT.
+
+    \subsubsection{\code{read}}
+      Will wait for user input from STDIN, and takes it when the user gives a
+      new line.
+    \subsubsection{\code{puts}}
+      Does the same as \code{out}, but each string is separated by a space,
+      and adds a trailing new line.
+
+    \subsubsection{\code{let}}
+      Takes in any number of symbol-value pairs (e.g. \code{(sym val)};
+      \code{(x 3)}) where the first value is a symbol which the value will
+      get bound to.
+
+      For example:
+      \begin{minted}{lisp}
+        (let (x 3) (y 7))  ;; Read as: `let x = 3 and y = 7.'
+      \end{minted}
+
+    \subsubsection{\code{delete}}
+      Takes any number of symbols and deletes them from their
+      symbol table thereby removing their bindings.
+
+    \subsubsection{\code{mutate}}
+      Same as let, except it allows the mutation of its symbols.
+
+    \subsubsection{\code{λ} \& \code{lambda}}
+      Takes two arguments. The first one is a list of symbols
+      and the second can be any expression. The first list represents
+      the arguments being given to the anonymous function / closure / lambda
+      and the second argument is the lambda body, which may use the arguments
+      given to it listed in the argument list.
+
+      \code{λ} has been aliased to \code{lambda} in the prelude
+      library.
+
+    \subsubsection{\code{->}}
+      This is a shorthand lambda. It works the same as normal lambda but
+      it doesn't need an argument list. This is because the number of
+      arguments are deduced at the parse stage, this is possible as
+      arguments are simply listed numerically with a percentage sign
+      in front.
+
+      For example:
+
+      \begin{minted}{lisp}
+        (-> (+ 5 %1 %2))  ;; A function that takes two arguments and
+                          ;; returns their sum plus five.
+        ;; This is equivalent to:
+
+        (lambda (n m) (+ 5 n m))
+      \end{minted}
+
+    \subsubsection{\code{define}}
+    This is similar to the lambda, except it gives the function a name.
+    The first argument must be a list, the list must contain first
+    the function name, and the rest are the function parameters.
+    The second argument is the function body.
+
+    For example:
+      \begin{minted}{lisp}
+        (define (f x y)
+          (+ 5 x y))
+        ;; Which is equivalent to
+        (let (f (lambda (x y) (+ 5 x y))))
+      \end{minted}
+
+    \clearpage
+
+  \subsection{Debugging, Configuration \& Verbose Mode}
+    In the file \code{/lispy/config.py} it is possible to alter
+    the behaviour of the execution slightly.
+
+    The first number of variables listed are recursion depth limits,
+    which allow Python's call stack to grow to a certain size by
+    the line of code:
+
+    \begin{minted}{python}
+    RECURSION_LIMIT = YOUR_LIMIT_HERE
+    sys.setrecursionlimit(RECURSION_LIMIT)
+    \end{minted}
+
+    Right now the recursion limit is very high, which \emph{could} lead
+    to some overflows.
+
+    The following constants: \code{DEBUG, EXIT\_ON\_ERROR, RECOVERING\_FROM\_ERROR}
+    change slightly the behaviour / output of the program.
+
+    \code{DEBUG} --- Will make the interpreter output information about
+    just about anything it is doing. You may have seen many lines of code
+    saying something similar to: \code{if conf.DEBUG: print(...)},
+    this is what they're for. The debug mode has been very useful while
+    developing the components of the interpreter.
+
+    \code{EXIT\_ON\_ERROR} --- Is another Boolean, it dictates whether the
+    program should continue executing after encountering an error.
+    This is useful of REPLs as the REPL should still continue working
+    even if  you write a faulty line of code.
+
+    \code{RECOVERING\_FROM\_ERROR} --- Is just a global that keeps
+    track of whether or not the program has recovered form an error yet.
+
+  \subsection{Prelude / Standard Library for the Language}
+    The Prelude is simply a set of files that run before \emph{your} program
+    begins to execute. The library outlines some simple functions, globals, and
+    macros which are useful for writing your code. Examples of things the prelude
+    implements are: The \code{while} statement; the \code{for} loop; functions
+    from functional programming such as \code{map}, \code{reduce} and \code{filter};
+    \etc
+
+    The current files in the prelude are (in load order):
+    \begin{itemize}
+      \item \code{functional.lispy} --- Basic functional functions, this file implements:
+        \begin{itemize}
+          \item \code{lambda}, which is aliased to \code{λ}.
+          \item \code{apply} which is a macro that takes a function
+                and applies it to a list of arguments as that functions
+                argument list.
+        \end{itemize}
+      \item \code{destructive.lispy} --- All destructive operations, this file implements:
+        \begin{itemize}
+          \item \code{incr!}, which takes a symbol and a number, and increments
+                the symbol by that number.
+          \item \code{decr!}, which does the same as \code{incr!} except it
+                decrements instead.
+
+          \item \code{+1}, which increments a symbol by exactly one.
+          \item \code{-1}, which decrements a symbol by exactly one.
+        \end{itemize}
+      \item \code{dt.lispy} --- Defines a number of functions for workin with
+      datatypes, this file implements:
+        \begin{itemize}
+          \item \code{to\_string}, which converts its argument to a string.
+          \item \code{to\_atom}, which converts its argument to an atom.
+          \item \code{type?}, which checks if its first arguments type matches
+          the type of the second argument.
+          \item \code{nil?}, which checks if its argument is of type NIL.
+          \item \code{atom?}, which checks if its argument is of type ATOM.
+        \end{itemize}
+      \item \code{loop.lispy} --- Defines a number of different styles of loop,
+      this file implements:
+        \begin{itemize}
+          \item \code{while}, which will repeat its second argument, as long
+          as its first argument keeps being true.
+          \item \code{until}, which will repeat its second argument, as long
+          as its first argument keeps being false.
+          \item \code{loop}, which is a a loop that will run forever.
+          \item \code{from}, which will run a function a given amount of times,
+          from a given range, where the argument supplied to that function is
+          the current position through that range.
+          \item \code{times}, will run a function a given amount of times.
+        \end{itemize}
+      \item \code{lists.lispy} --- A collections of functions for list operations,
+      this file implements:
+        \begin{itemize}
+          \item \code{quote}, which simply quotes an expression, just like the
+          single quote operator, however here it's named.
+          \item \code{push, unshift, concat, concat!} have all been aliased to:
+                \code{append, prepend, merge, merge!}, respectively.
+          \item \code{empty?}, which takes a list and returns a Boolean depending
+                on whether the list is empty.
+          \item \code{first}, which returns the first item of a list.
+          \item \code{last}, which returns the last item of a list.
+          \item \code{head} is an alias of \code{first}.
+          \item \code{tail}, returns a list of all elements of the given
+          list excluding the first element of the list.
+          \item \code{for}, which implements a for loop with the syntax:
+                \code{(for some-symbol in some-list (do execute this body))}.
+          \item \code{reverse}, which reverses a given list.
+          \item \code{fill}, which fills a given array with integers between a
+          specified range.
+          \item \code{range}, which returns an array filled with integers from
+          a given lowe bound and upper bound.
+          \item \code{map}, which takes a function and a list and applies
+          that function to every element of that list.
+          \item \code{reduce}, which will apply an operation (given by a function)
+          between every element of the given list, reducing it down to one value.
+          \item \code{filter}, which takes a function which is applied to every
+          element of a supplied list, and if that function evaluates to true, it
+          is appended to a new list, which is then ultimately returned.
+        \end{itemize}
+      \item \code{numerics.lispy} --- Defines a set of functions for used for
+            doing work on numbers, this file implements:
+              \begin{itemize}
+                \item \code{zero?}, which takes a number and returns whether the
+                number is zero or not.
+                \item \code{divisible?}, checks whether your first argument is
+                divisible by the second argument.
+                \item \code{sum}, which returns the sum of a list. It is
+                defined as \code{(define (sum l) (apply + l))}.
+              \end{itemize}
+      \item \code{IO.lispy} --- Functions relating to input and output, this file implements:
+        \begin{itemize}
+          \item \code{EOF}, which is a variable that has value of: \code{"\char`\\0"}.
+          \item \code{out, read} have been aliased to \code{print, input}
+          respectively.
+        \end{itemize}
+    \end{itemize}
+
+    The file \code{/prelude/prelude.lispy} requires all the files above, and looks
+    like this.
+
+    \graph{prelude}{The prelude file that gets loaded at the beginning of every
+    interpreter spawn.}
+
+    It is important to note that the Prelude is entirely implemented in LISPY
+    itself, this demonstrates that the language is not only quite usable, but also
+    extendable in its syntax, mostly through the use of macros.
+
+  \clearpage
 
 \section{Testing of Implementation}
+  I have been continuously the implementation of the language as I've been
+  developing it, many of the sample code, and all of the debug/verbose prints
+  found throughout the code were done long before the language implementation
+  was finished.
+
+
   \subsection{Testing Discrete Sub-Components}
+    Each stage of the interpreter has many small print statements that will
+    print if the \code{DEBUG} constant is set to \code{True} in the \code{config.py}
+    file, these allow me to see what every stage of the interpreter is doing.
+
+    It will be impossible to replicate and document the hundreds of tests
+    I've run throughout the development of the interpreter, but I will run through
+    an example of how I tested these sub-components.
+
+    Most of my testing has been done in a file found in the root directory of
+    the repository called `\code{/testing.lispy}', which currently happens
+    to have something appropriate to use as an example here.
+
+    \code{testing.lispy} looks like this:
+
+    \begin{minted}[linenos]{lisp}
+    (define macro (ten-times sym body) (do
+      (let (sym 0))
+      (iterate (do
+        (mutate (sym (+ (eval sym) 1)))
+        (if (> (eval sym) 10) break)
+        (eval body)))
+      (delete sym)))
+
+
+    (ten-times counter (do
+      (puts counter)))
+                         ;;       vvv  --- UNDERSCORE
+    (-> (+ %1 %2 %3 %4)) ;; Here, `_' just means the return value of the
+    (_ 5 5 5 5)          ;;   last statement that has been evaluated.
+    (puts (string "5*4 =" _))
+    \end{minted}
+
+
+    Let's now also write a little Python script which will print
+    out the exact information we need. It is called \code{/debug-stages.py}
+    and looks like this:
+
+    \graph{debug-stages}{Our debugging script.}
+
+
     \subsubsection{Lexical Analysis}
+      The lexer has been described in detail previously, and produces the
+      expected token stream. This is what the above program's token
+      stream looks like:
+
+      \begin{Verbatim}[baselinestretch=0.75]
+<Token(L_PAREN) ........... [1, 1] ... '('>
+<Token(SYMBOL) ............ [1, 2] ... 'define'>
+<Token(SYMBOL) ............ [1, 9] ... 'macro'>
+<Token(L_PAREN) .......... [1, 15] ... '('>
+<Token(SYMBOL) ........... [1, 16] ... 'ten-times'>
+<Token(SYMBOL) ........... [1, 26] ... 'sym'>
+<Token(SYMBOL) ........... [1, 30] ... 'body'>
+<Token(R_PAREN) .......... [1, 34] ... ')'>
+<Token(L_PAREN) .......... [1, 36] ... '('>
+<Token(SYMBOL) ........... [1, 37] ... 'do'>
+<Token(TERMINATOR) ....... [1, 39] ... '\n'>
+<Token(L_PAREN) ........... [2, 3] ... '('>
+<Token(SYMBOL) ............ [2, 4] ... 'let'>
+<Token(L_PAREN) ........... [2, 8] ... '('>
+<Token(SYMBOL) ............ [2, 9] ... 'sym'>
+<Token(NUMERIC) .......... [2, 13] ... '0'>
+<Token(R_PAREN) .......... [2, 14] ... ')'>
+<Token(R_PAREN) .......... [2, 15] ... ')'>
+<Token(TERMINATOR) ....... [2, 16] ... '\n'>
+<Token(L_PAREN) ........... [3, 3] ... '('>
+<Token(SYMBOL) ............ [3, 4] ... 'iterate'>
+<Token(L_PAREN) .......... [3, 12] ... '('>
+<Token(SYMBOL) ........... [3, 13] ... 'do'>
+<Token(TERMINATOR) ....... [3, 15] ... '\n'>
+<Token(L_PAREN) ........... [4, 5] ... '('>
+<Token(SYMBOL) ............ [4, 6] ... 'mutate'>
+<Token(L_PAREN) .......... [4, 13] ... '('>
+<Token(SYMBOL) ........... [4, 14] ... 'sym'>
+<Token(L_PAREN) .......... [4, 18] ... '('>
+<Token(SYMBOL) ........... [4, 19] ... '+'>
+<Token(L_PAREN) .......... [4, 21] ... '('>
+<Token(SYMBOL) ........... [4, 22] ... 'eval'>
+<Token(SYMBOL) ........... [4, 27] ... 'sym'>
+<Token(R_PAREN) .......... [4, 30] ... ')'>
+<Token(NUMERIC) .......... [4, 32] ... '1'>
+<Token(R_PAREN) .......... [4, 33] ... ')'>
+<Token(R_PAREN) .......... [4, 34] ... ')'>
+<Token(R_PAREN) .......... [4, 35] ... ')'>
+<Token(TERMINATOR) ....... [4, 36] ... '\n'>
+<Token(L_PAREN) ........... [5, 5] ... '('>
+<Token(SYMBOL) ............ [5, 6] ... 'if'>
+<Token(L_PAREN) ........... [5, 9] ... '('>
+<Token(SYMBOL) ........... [5, 10] ... '>'>
+<Token(L_PAREN) .......... [5, 12] ... '('>
+<Token(SYMBOL) ........... [5, 13] ... 'eval'>
+<Token(SYMBOL) ........... [5, 18] ... 'sym'>
+<Token(R_PAREN) .......... [5, 21] ... ')'>
+<Token(NUMERIC) .......... [5, 23] ... '10'>
+<Token(R_PAREN) .......... [5, 25] ... ')'>
+<Token(SYMBOL) ........... [5, 27] ... 'break'>
+<Token(R_PAREN) .......... [5, 32] ... ')'>
+<Token(TERMINATOR) ....... [5, 33] ... '\n'>
+<Token(L_PAREN) ........... [6, 5] ... '('>
+<Token(SYMBOL) ............ [6, 6] ... 'eval'>
+<Token(SYMBOL) ........... [6, 11] ... 'body'>
+<Token(R_PAREN) .......... [6, 15] ... ')'>
+<Token(R_PAREN) .......... [6, 16] ... ')'>
+<Token(R_PAREN) .......... [6, 17] ... ')'>
+<Token(TERMINATOR) ....... [6, 18] ... '\n'>
+<Token(L_PAREN) ........... [7, 3] ... '('>
+<Token(SYMBOL) ............ [7, 4] ... 'delete'>
+<Token(SYMBOL) ........... [7, 11] ... 'sym'>
+<Token(R_PAREN) .......... [7, 14] ... ')'>
+<Token(R_PAREN) .......... [7, 15] ... ')'>
+<Token(R_PAREN) .......... [7, 16] ... ')'>
+<Token(TERMINATOR) ....... [7, 17] ... '\n'>
+<Token(TERMINATOR) ........ [8, 1] ... '\n'>
+<Token(TERMINATOR) ........ [9, 1] ... '\n'>
+<Token(L_PAREN) .......... [10, 1] ... '('>
+<Token(SYMBOL) ........... [10, 2] ... 'ten-times'>
+<Token(SYMBOL) .......... [10, 12] ... 'counter'>
+<Token(L_PAREN) ......... [10, 20] ... '('>
+<Token(SYMBOL) .......... [10, 21] ... 'do'>
+<Token(TERMINATOR) ...... [10, 23] ... '\n'>
+<Token(L_PAREN) .......... [11, 3] ... '('>
+<Token(SYMBOL) ........... [11, 4] ... 'puts'>
+<Token(SYMBOL) ........... [11, 9] ... 'counter'>
+<Token(R_PAREN) ......... [11, 16] ... ')'>
+<Token(R_PAREN) ......... [11, 17] ... ')'>
+<Token(R_PAREN) ......... [11, 18] ... ')'>
+<Token(TERMINATOR) ...... [11, 19] ... '\n'>
+<Token(TERMINATOR) ...... [12, 50] ... '\n'>
+<Token(L_PAREN) .......... [13, 1] ... '('>
+<Token(SYMBOL) ........... [13, 2] ... '->'>
+<Token(L_PAREN) .......... [13, 5] ... '('>
+<Token(SYMBOL) ........... [13, 6] ... '+'>
+<Token(SYMBOL) ........... [13, 8] ... '%1'>
+<Token(SYMBOL) .......... [13, 11] ... '%2'>
+<Token(SYMBOL) .......... [13, 14] ... '%3'>
+<Token(SYMBOL) .......... [13, 17] ... '%4'>
+<Token(R_PAREN) ......... [13, 19] ... ')'>
+<Token(R_PAREN) ......... [13, 20] ... ')'>
+<Token(TERMINATOR) ...... [13, 69] ... '\n'>
+<Token(L_PAREN) .......... [14, 1] ... '('>
+<Token(SYMBOL) ........... [14, 2] ... '_'>
+<Token(NUMERIC) .......... [14, 4] ... '5'>
+<Token(NUMERIC) .......... [14, 6] ... '5'>
+<Token(NUMERIC) .......... [14, 8] ... '5'>
+<Token(NUMERIC) ......... [14, 10] ... '5'>
+<Token(R_PAREN) ......... [14, 11] ... ')'>
+<Token(TERMINATOR) ...... [14, 66] ... '\n'>
+<Token(L_PAREN) .......... [15, 1] ... '('>
+<Token(SYMBOL) ........... [15, 2] ... 'puts'>
+<Token(L_PAREN) .......... [15, 7] ... '('>
+<Token(SYMBOL) ........... [15, 8] ... 'string'>
+<Token(STRING) .......... [15, 15] ... '5*4 ='>
+<Token(SYMBOL) .......... [15, 23] ... '_'>
+<Token(R_PAREN) ......... [15, 24] ... ')'>
+<Token(R_PAREN) ......... [15, 25] ... ')'>
+<Token(TERMINATOR) ...... [15, 26] ... '\n'>
+<Token(EOF) .............. [16, 1] ... '\x00'>
+      \end{Verbatim}
+
+      Here we can see every token labelled with all the correct annotation,
+      and accurate line and column numbers. The stream also  provides readable
+      strings which are snippets of the code they correspond to. Every token
+      stream ends in an EOF token.
+
     \subsubsection{Initial Parse Tree}
+
+    The script then prints out the initial parse tree, which if you read carefully,
+    you can quite clearly see how it corresponds to the original code. Indentation
+    in the source file corresponds vaguely to indentation in the tree.
+
+    The tree looks like this:
+
+    \setlength{\lineskip}{0pt}
+    \begin{Verbatim}[baselinestretch=0.75]
+│
+├─<AST::Node[Call]
+│      ├─caller
+│      │  └─<AST::Node[Symbol] ('define')>
+│      └─operands=[
+│         <AST::Node[Symbol] ('macro')>
+│         <AST::Node[Call]
+│            ├─caller
+│            │  └─<AST::Node[Symbol] ('ten-times')>
+│            └─operands=[
+│               <AST::Node[Symbol] ('sym')>
+│               <AST::Node[Symbol] ('body')>
+│              ]>
+│         <AST::Node[Call]
+│            ├─caller
+│            │  └─<AST::Node[Symbol] ('do')>
+│            └─operands=[
+│               <AST::Node[Call]
+│               ├─caller
+│               │  └─<AST::Node[Symbol] ('let')>
+│               └─operands=[
+│                  <AST::Node[Call]
+│                  ├─caller
+│                  │  └─<AST::Node[Symbol] ('sym')>
+│                  └─operands=[
+│                     <AST::Node[Numeric] (0)>
+│                    ]>
+│                 ]>
+│               <AST::Node[Call]
+│               ├─caller
+│               │  └─<AST::Node[Symbol] ('iterate')>
+│               └─operands=[
+│                  <AST::Node[Call]
+│                  ├─caller
+│                  │  └─<AST::Node[Symbol] ('do')>
+│                  └─operands=[
+│                     <AST::Node[Call]
+│                     ├─caller
+│                     │  └─<AST::Node[Symbol] ('mutate')>
+│                     └─operands=[
+│                        <AST::Node[Call]
+│                        ├─caller
+│                        │  └─<AST::Node[Symbol] ('sym')>
+│                        └─operands=[
+│                           <AST::Node[Call]
+│                           ├─caller
+│                           │  └─<AST::Node[Symbol] ('+')>
+│                           └─operands=[
+│                              <AST::Node[Call]
+│                              ├─caller
+│                              │  └─<AST::Node[Symbol] ('eval')>
+│                              └─operands=[
+│                                 <AST::Node[Symbol] ('sym')>
+│                                ]>
+│                              <AST::Node[Numeric] (1)>
+│                             ]>
+│                          ]>
+│                       ]>
+│                     <AST::Node[Call]
+│                     ├─caller
+│                     │  └─<AST::Node[Symbol] ('if')>
+│                     └─operands=[
+│                        <AST::Node[Call]
+│                        ├─caller
+│                        │  └─<AST::Node[Symbol] ('>')>
+│                        └─operands=[
+│                           <AST::Node[Call]
+│                           ├─caller
+│                           │  └─<AST::Node[Symbol] ('eval')>
+│                           └─operands=[
+│                              <AST::Node[Symbol] ('sym')>
+│                             ]>
+│                           <AST::Node[Numeric] (10)>
+│                          ]>
+│                        <AST::Node[Symbol] ('break')>
+│                       ]>
+│                     <AST::Node[Call]
+│                     ├─caller
+│                     │  └─<AST::Node[Symbol] ('eval')>
+│                     └─operands=[
+│                        <AST::Node[Symbol] ('body')>
+│                       ]>
+│                    ]>
+│                 ]>
+│               <AST::Node[Call]
+│               ├─caller
+│               │  └─<AST::Node[Symbol] ('delete')>
+│               └─operands=[
+│                  <AST::Node[Symbol] ('sym')>
+│                 ]>
+│              ]>
+│        ]>
+│
+├─<AST::Node[Call]
+│      ├─caller
+│      │  └─<AST::Node[Symbol] ('ten-times')>
+│      └─operands=[
+│         <AST::Node[Symbol] ('counter')>
+│         <AST::Node[Call]
+│            ├─caller
+│            │  └─<AST::Node[Symbol] ('do')>
+│            └─operands=[
+│               <AST::Node[Call]
+│               ├─caller
+│               │  └─<AST::Node[Symbol] ('puts')>
+│               └─operands=[
+│                  <AST::Node[Symbol] ('counter')>
+│                 ]>
+│              ]>
+│        ]>
+│
+├─<AST::Node[Call]
+│      ├─caller
+│      │  └─<AST::Node[Symbol] ('->')>
+│      └─operands=[
+│         <AST::Node[Call]
+│            ├─caller
+│            │  └─<AST::Node[Symbol] ('+')>
+│            └─operands=[
+│               <AST::Node[Symbol] ('%1')>
+│               <AST::Node[Symbol] ('%2')>
+│               <AST::Node[Symbol] ('%3')>
+│               <AST::Node[Symbol] ('%4')>
+│              ]>
+│        ]>
+│
+├─<AST::Node[Call]
+│      ├─caller
+│      │  └─<AST::Node[Symbol] ('_')>
+│      └─operands=[
+│         <AST::Node[Numeric] (5)>
+│         <AST::Node[Numeric] (5)>
+│         <AST::Node[Numeric] (5)>
+│         <AST::Node[Numeric] (5)>
+│        ]>
+│
+├─<AST::Node[Call]
+│      ├─caller
+│      │  └─<AST::Node[Symbol] ('puts')>
+│      └─operands=[
+│         <AST::Node[Call]
+│            ├─caller
+│            │  └─<AST::Node[Symbol] ('string')>
+│            └─operands=[
+│               <AST::Node[String] ('5*4 =')>
+│               <AST::Node[Symbol] ('_')>
+│              ]>
+│        ]>
+
+\end{Verbatim}
+
+    \clearpage
+
     \subsubsection{Macro Expanded Tree}
+      Every line beginning with `\code{(define macro (...}' needs to defines a
+      macro, and macros are only defined under the context of the preprocessor
+      part of the parser, and the evaluator would have no idea what to do with it.
+      Hence every occurrence of a macro definition is simply replaced with a nil
+      node, as you'll see in the macro expanded tree, as well as the expansion of
+      the above macro.
+
+      \clearpage
+
+      The final, macro expanded, abstract syntax tree looks like this:
+
+      \begin{Verbatim}[baselinestretch=0.75]
+│
+├─<AST::Node[Nil] ('nil')>
+│
+├─<AST::Node[Call]
+│      ├─caller
+│      │  └─<AST::Node[Symbol] ('do')>
+│      └─operands=[
+│         <AST::Node[Call]
+│            ├─caller
+│            │  └─<AST::Node[Symbol] ('let')>
+│            └─operands=[
+│               <AST::Node[Call]
+│               ├─caller
+│               │  └─<AST::Node[Uneval] (<AST::Node[Symbol] ('counter')>)>
+│               └─operands=[
+│                  <AST::Node[Numeric] (0)>
+│                 ]>
+│              ]>
+│         <AST::Node[Call]
+│            ├─caller
+│            │  └─<AST::Node[Symbol] ('iterate')>
+│            └─operands=[
+│               <AST::Node[Call]
+│               ├─caller
+│               │  └─<AST::Node[Symbol] ('do')>
+│               └─operands=[
+│                  <AST::Node[Call]
+│                  ├─caller
+│                  │  └─<AST::Node[Symbol] ('mutate')>
+│                  └─operands=[
+│                     <AST::Node[Call]
+│                     ├─caller
+│                     │  └─<AST::Node[Uneval] (<AST::Node[Symbol] ('counter')>)>
+│                     └─operands=[
+│                        <AST::Node[Call]
+│                        ├─caller
+│                        │  └─<AST::Node[Symbol] ('+')>
+│                        └─operands=[
+│                           <AST::Node[Call]
+│                           ├─caller
+│                           │  └─<AST::Node[Symbol] ('eval')>
+│                           └─operands=[
+│                              <AST::Node[Uneval] (<AST::Node[Symbol] ('counter')>)>
+│                             ]>
+│                           <AST::Node[Numeric] (1)>
+│                          ]>
+│                       ]>
+│                    ]>
+│                  <AST::Node[Call]
+│                  ├─caller
+│                  │  └─<AST::Node[Symbol] ('if')>
+│                  └─operands=[
+│                     <AST::Node[Call]
+│                     ├─caller
+│                     │  └─<AST::Node[Symbol] ('>')>
+│                     └─operands=[
+│                        <AST::Node[Call]
+│                        ├─caller
+│                        │  └─<AST::Node[Symbol] ('eval')>
+│                        └─operands=[
+│                           <AST::Node[Uneval] (<AST::Node[Symbol] ('counter')>)>
+│                          ]>
+│                        <AST::Node[Numeric] (10)>
+│                       ]>
+│                     <AST::Node[Symbol] ('break')>
+│                    ]>
+│                  <AST::Node[Call]
+│                  ├─caller
+│                  │  └─<AST::Node[Symbol] ('eval')>
+│                  └─operands=[
+│                     <AST::Node[Uneval] (<AST::Node[Call]
+│                                           ├─caller
+│                                           │  └─<AST::Node[Symbol] ('do')>
+│                                           └─operands=[
+│                                              <AST::Node[Call]
+│                                                 ├─caller
+│                                                 │  └─<AST::Node[Symbol] ('puts')>
+│                                                 └─operands=[
+│                                                    <AST::Node[Symbol] ('counter')>
+│                                                   ]>
+│                                             ]>)>
+│                    ]>
+│                 ]>
+│              ]>
+│         <AST::Node[Call]
+│            ├─caller
+│            │  └─<AST::Node[Symbol] ('delete')>
+│            └─operands=[
+│               <AST::Node[Uneval] (<AST::Node[Symbol] ('counter')>)>
+│              ]>
+│        ]>
+│
+├─<AST::Node[Call]
+│      ├─caller
+│      │  └─<AST::Node[Symbol] ('->')>
+│      └─operands=[
+│         <AST::Node[Call]
+│            ├─caller
+│            │  └─<AST::Node[Symbol] ('+')>
+│            └─operands=[
+│               <AST::Node[Symbol] ('%1')>
+│               <AST::Node[Symbol] ('%2')>
+│               <AST::Node[Symbol] ('%3')>
+│               <AST::Node[Symbol] ('%4')>
+│              ]>
+│        ]>
+│
+├─<AST::Node[Call]
+│      ├─caller
+│      │  └─<AST::Node[Symbol] ('_')>
+│      └─operands=[
+│         <AST::Node[Numeric] (5)>
+│         <AST::Node[Numeric] (5)>
+│         <AST::Node[Numeric] (5)>
+│         <AST::Node[Numeric] (5)>
+│        ]>
+│
+├─<AST::Node[Call]
+│      ├─caller
+│      │  └─<AST::Node[Symbol] ('puts')>
+│      └─operands=[
+│         <AST::Node[Call]
+│            ├─caller
+│            │  └─<AST::Node[Symbol] ('string')>
+│            └─operands=[
+│               <AST::Node[String] ('5*4 =')>
+│               <AST::Node[Symbol] ('_')>
+│              ]>
+│        ]>
+
+\end{Verbatim}
+
     \subsubsection{Scoping \& Tables}
   \subsection{Testing the Prelude Library}
   \subsection{Testing through Sample Code}
@@ -1253,8 +2656,8 @@ evaluate (node) =>
 
 \section{Appraisal}
   \subsection{Comparison against Objectives}
-  \subsection{Future Improvements, Potential and Ideas}
-  \subsection{Users' Usage and Feedback }
+  \subsection{Future Improvements, Potential \& Ideas}
+  \subsection{Users' Usage \& Feedback }ASDAWSDWEASDXA
 
 
   \clearpage

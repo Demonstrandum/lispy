@@ -1,3 +1,5 @@
+import copy
+
 class Tree(list):
     def __init__(self, file):
         self.file = file
@@ -25,14 +27,6 @@ class Node(object):
             [str, repr][type(self.value) is str](self.value)
         )
 
-class Nil(Node):
-    def __init__(self, loc):
-        self.location = loc
-        self.value = 'nil'
-        self.type = self.__class__
-        self.name = str(self.type).split('.')[-1][:-2]
-    def __hash__(self):
-        return hash(self.value)
 
 class Operator(Node):
     def __init__(self, value, loc, *operands):
@@ -42,6 +36,8 @@ class Operator(Node):
         self.type = self.__class__
         self.name = str(self.type).split('.')[-1][:-2]
         self.shorthand = None
+    def __deepcopy__(self, memodict={}):
+        return self.__class__(copy.deepcopy(self.value), self.location, *(copy.deepcopy(self.operands)))
     def __str__(self, depth=0):  # Don't even try to understand this.
         operands = '\n'.join(
             map(lambda e: (u'\u2503{}'.format(TAB * ([1, 2][depth>0] + depth) + (e.__str__(depth + 1) if issubclass(type(e), Node) else str(e)))), self.operands)
@@ -61,7 +57,19 @@ class Data(Node):
         self.value = value
         self.type = self.__class__
         self.name = str(self.type).split('.')[-1][:-2]
+    def __deepcopy__(self, memodict={}):
+        return  self.__class__(copy.deepcopy(self.value), self.location)
 
+class Nil(Node):
+    def __init__(self, loc):
+        self.location = loc
+        self.value = 'nil'
+        self.type = self.__class__
+        self.name = str(self.type).split('.')[-1][:-2]
+    def __deepcopy__(self, memodict={}):
+        return self
+    def __hash__(self):
+        return hash(self.value)
 
 # Declare children classes
 
