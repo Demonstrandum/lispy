@@ -1,6 +1,9 @@
 # serialised trees
 serialised_trees/
 
+# general
+bf-lambda-calc.lispy
+
 # python stuff
 __pycache__/
 
