@@ -1122,6 +1122,19 @@ evaluate (node) =>
   creative name, and no doubt a name that's (probably) been used before, by someone else
   writing their Lisp in Python.
 
+  I'd like to note that all testing, development and executing of the described
+  implementation has been done on a GNU/Linux machine. On such a machine, executing
+  either the interpreter or the REPL is as simple as being in the root directory
+  of this repository and typing \code{./execute <filename>} or \code{./ilispy},
+  respectively.  The same should be true for most UNIX machines, such as a
+  BSD distribution or Apple's macOS (provided Python $>$3.7 is installed).
+
+  For Windows I strongly recommend you run the programs in the CMD or PowerShell
+  shells, and not the subpar terminal emulator provided with the Python IDLE.
+  To run the files in said shells, I believe you may open a CMD window in the
+  root of the repository and type \code{python execute <filename>} provided that
+  Python is in your PATH environment variable.
+
   \clearpage
 
   The file structure of the repository is easy to follow and looks like this:
@@ -2755,10 +2768,10 @@ Visiting (`testing.lispy' branch: 4):
     The \code{/samples} directory contains 14 example programs written
     in LISPY, here they are in alphabetical order:
     \begin{Verbatim}
-atoms.lispy	      deep.lispy	    functions.lispy lists.lispy
-blocks.lispy	    eval.lispy	    ifact.lispy     strings.lispy
-compose.lispy	    factorial.lispy integral.lispy
-declarative.lispy fizzbuzz.lispy  internal.lispy
+atoms.lispy        deep.lispy       functions.lispy  lists.lispy
+blocks.lispy       eval.lispy       ifact.lispy      strings.lispy
+compose.lispy      factorial.lispy  integral.lispy
+declarative.lispy  fizzbuzz.lispy   internal.lispy
     \end{Verbatim}
 
     Each file has been used to test certain features as I was developing them.
