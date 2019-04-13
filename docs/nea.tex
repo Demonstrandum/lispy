@@ -1926,7 +1926,7 @@ evaluate (node) =>
     \subsubsection{\code{||}}
       Checks if at least one argument or more are truthy.
 
-    \subsubsection{\code{\^\^}}
+    \subsubsection{\code{\^{}\^{}}}
       Checks if an even number of arguments are truthy (XOR --- Exclusive Or).
 
     \subsubsection{\code{<}}
@@ -2649,16 +2649,275 @@ evaluate (node) =>
 
 \end{Verbatim}
 
+    Nodes are all nested appropriately and all they need now is
+    to be traversed and reduced to what they evaluate to.
+
     \subsubsection{Scoping \& Tables}
-  \subsection{Testing the Prelude Library}
+    For this section, I'll disregard the script we made, as that only handles
+    lexical analysis and parsing. Instead I shall use the normal \code{./execute}
+    file that is meant for executing files normally, however I will set
+    \code{DEBUG} to \code{True} in \code{/lispy/config.py}. This will give a verbose
+    output from the \code{/lispy/visitor.py} file especially.
+
+    Running the command ``\code{./execute testing.lispy}'' in the root of
+    the repository, will execute the program with extra debug information.
+    The debug information is long, especially as certain functions are called hundreds
+    of times, producing a lot of output to STDERR. Due to the volume of debug
+    information, I will only include certain relevant snippets here.
+
+    Running the command normally without debug mode, gets the following output
+    to STDOUT (and none to STDERR):
+
+    \begin{Verbatim}
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+5*4 = 20
+    \end{Verbatim}
+
+    Which is exactly as expected. We count to 10 and add 5 together, four times.
+
+\clearpage
+
+    Now let's run it with debug mode. Let's have a look at the last thing it executes,
+    the shorthand-syntax lambda:
+
+    \begin{verbatim}
+Searching current scopes for symbol:  %1
+Current parent tables searching: ['<TABLE`_main`:0x0 [frozen]>',
+'<TABLE`_short_lambda`:0x7f5fb95b72b0 [frozen]>', '<TABLE`_main`:0x0>',
+'<TABLE`_short_lambda`:0x7f5fb95b72b0>', '<TABLE`_short_lambda`:0x7f5fb95b72b0>']
+Looking at: <TABLE`_short_lambda`:0x7f5fb95b72b0>
+With bound symbols: ['%1', '%2', '%3', '%4']
+Matched symbol in table.
+5
+[!!] - Finished symbol search.
+
+Searching current scopes for symbol:  %2
+Current parent tables searching: ['<TABLE`_main`:0x0 [frozen]>',
+'<TABLE`_short_lambda`:0x7f5fb95b72b0 [frozen]>', '<TABLE`_main`:0x0>',
+'<TABLE`_short_lambda`:0x7f5fb95b72b0>', '<TABLE`_short_lambda`:0x7f5fb95b72b0>']
+Looking at: <TABLE`_short_lambda`:0x7f5fb95b72b0>
+With bound symbols: ['%1', '%2', '%3', '%4']
+Matched symbol in table.
+5
+[!!] - Finished symbol search.
+
+Searching current scopes for symbol:  %3
+Current parent tables searching: ['<TABLE`_main`:0x0 [frozen]>',
+'<TABLE`_short_lambda`:0x7f5fb95b72b0 [frozen]>', '<TABLE`_main`:0x0>',
+'<TABLE`_short_lambda`:0x7f5fb95b72b0>', '<TABLE`_short_lambda`:0x7f5fb95b72b0>']
+Looking at: <TABLE`_short_lambda`:0x7f5fb95b72b0>
+With bound symbols: ['%1', '%2', '%3', '%4']
+Matched symbol in table.
+5
+[!!] - Finished symbol search.
+
+Searching current scopes for symbol:  %4
+Current parent tables searching: ['<TABLE`_main`:0x0 [frozen]>',
+'<TABLE`_short_lambda`:0x7f5fb95b72b0 [frozen]>', '<TABLE`_main`:0x0>',
+'<TABLE`_short_lambda`:0x7f5fb95b72b0>', '<TABLE`_short_lambda`:0x7f5fb95b72b0>']
+Looking at: <TABLE`_short_lambda`:0x7f5fb95b72b0>
+With bound symbols: ['%1', '%2', '%3', '%4']
+Matched symbol in table.
+5
+[!!] - Finished symbol search.
+
+Visiting (`testing.lispy' branch: 4):
+[puts] --- <STDOUT>: `5*4 = 20'
+\end{verbatim}
+\clearpage
+    Here, the lambda has already been defined, and so has its symbol table,
+    and all we're doing here is executing it. As you can see, every time
+    it encounters a symbol, say `\code{\%2}', it begins a symbol table search.
+    It lists off all possible tables it could be in, searching from most immediate
+    to farthest scope. For each table it searches through, it lists off all
+    symbols bound in that table and checks each one of them, if it doesn't
+    find anything, it moves on to the next table, on level up from the innermost
+    scope, until it runs out of tables. If it does run out of tables, naturally
+    it will throw an unbound symbol exception, as there exists no bound value
+    to that symbol in the scope.
+
   \subsection{Testing through Sample Code}
+    One way to test whether the features of my language work, is to simply
+    run a set of example programs of which each use a subset of the language's
+    features, running them all will test if all my features work, all using the
+    same interpreter, meaning all the features are compatible with each other
+    as well.
+
+    The \code{/samples} directory contains 14 example programs written
+    in LISPY, here they are in alphabetical order:
+    \begin{Verbatim}
+      blocks.lispy   deep.lispy	  fizzbuzz.lispy   integral.lispy  strings.lispy
+      compose.lispy  eval.lispy	  functions.lispy  internal.lispy
+    \end{Verbatim}
+
+    Each file has been used to test certain features as I was developing them.
+    Here is a list of what each file does / tests:
+
+    \begin{itemize}
+      \item \code{blocks.lispy} --- Demonstrates the usage of code blocks, i.e.
+      the \code{(do ...)} block.
+      \item \code{deep.lispy} --- Tests depth of call table lookups by nesting
+      lambdas, as I had previous issues with this.
+      \item \code{fizzbuzz.lispy} --- This is the classic FizzBuzz program.
+      It runs through a range of numbers, and prints each one of them, however,
+      when it encounters a multiple of 3, it prints ``Fizz'', on a multiple of
+      5 it prints ``Buzz'' and when both are true (it's a multiple of 15)
+      it prints ``FizzBuzz''. The file has two implementations, one slightly na\"ive one
+      which converts one number at a time, and can be passed to a \code{(map ...)}
+      function across a range; and another which is more generalised and uses
+      an explicit loop.
+      \item \code{integeral.lispy} --- Computes an integral of a given function,
+      it uses the Riemann summation method for a finite value of $dx$ to solve
+      an integral computationally. The integral function itself computes a
+      finitely bound integral with bounds passed in as parameters, (implemented recursively).
+      \item \code{strings.lispy} --- A file in which a list of operations possible on
+      a string is each tested.
+      \item \code{compose.lispy} --- This files tests the function composition macro
+      implemented internally.
+      \item \code{eval.lispy} --- Tests the \code{(eval ...)} macro. This demonstrates
+      not only evaluation and unevaluation, but also how one can have nested unevaluations.
+      \item \code{functions.lispy} -- Here, a number of functions are defined
+      and executed, testing the three ways of declaring a function (definitions,
+      lambdas, and short-hand lambdas), and runs them, proving scoping capability
+      (such as remembering parent scopes of where the function was defined (called
+      scope or variable capturing)) and how functions can call themselves and other functions.
+      \item \code{internal.lispy} --- Demonstrates the behaviour of internal
+      macros and how they differ from normal methods and macros.
+    \end{itemize}
   \subsection{Testing in the REPL}
+    The REPL provides an excellent way of quickly prototyping and debugging your
+    programs, as it will recover on errors, and fix where you left off.
+    I used the REPL mainly in debugging the language for testing how my
+    implementation handles incorrect code, and what error messages they give.
+
+    The number of possible errors is huge, so I'll just demonstrate a few from the
+    error types that the implement has (\code{Execution Error, Parse Error, Syntax Error
+    and Warnings}).
+
+    \subsubsection{Interpreter Warnings}
+      An example of a warning, is when the programmer tries to load
+      the same file twice (requiring a module more than once).
+
+      Take for example the prelude library, which always gets loaded anyway.
+      What would happen if I typed \code{(require :prelude/prelude)}?
+
+      \graph{err-warn}{Warning after requiring an already loaded module in
+      the REPL.}
+
+      The warning informs you that you're loading an already loaded module, and
+      hence it will clash with itself.
+
+    \subsubsection{Syntax Errors}
+      The most common syntax error to get in a Lisp like language, is
+      mismatched parentheses, take these examples:
+
+      \graph{too-many-parens}{Having an excess amount of parentheses.}
+      \graph{too-few-parens}{ Having too few closing parentheses.}
+      \graph{mismatched-parens}{An arrangement of parentheses which does not make
+      any sense.}
+
+      The great thing about the first two error messages about having an
+      \emph{unbalanced} amount of parentheses, is that the error messages
+      tell you exactly how to fix the line of code, and where they need
+      fixing, just by doing as the error messages say. The examples
+      would work just fine, and as intended, if the error messages are followed.
+
+      \graph{eof-string}{An unmatched closing quote.}
+
+    \subsubsection{Parse Errors}
+      An example of a parse error, is passing the incorrect amount of
+      arguments to a macro, since macros are expanded at parsing time.
+
+      \graph{parse-error}{We passed too many arguments to the `\code{m}' macro.}
+
+    \subsubsection{Execution Errors}
+      The majority of errors defined are indeed execution errors, here are some
+      examples:
+
+      \graph{unbound-sym}{Trying to get the value of a symbol which has
+      not had a value assigned to it.}
+
+      \graph{exec-args}{Passing an incorrect amount of arguments to
+      a function.}
+
+      Type checking is done to certain internal macros, such as the
+      Subtraction macro, as it makes no sense to subtract anything other
+      than numbers, or say subtracting a string from a number:
+
+      \graph{type-check}{Trying to subtract the string ``hello'' from the number
+      3 does not make sense.}
+
+      \graph{index-err}{Trying to index a list giving an incorrect index type.}
+
+      \graph{num-call}{Trying to make a call to something that is not
+      a function, namely a the number 4 here.}
+
+      There are many more errors defined, these were only a few of them.
+
+\clearpage
 
 \section{Appraisal}
   \subsection{Comparison against Objectives}
-  \subsection{Future Improvements, Potential \& Ideas}
-  \subsection{Users' Usage \& Feedback }ASDAWSDWEASDXA
+    The language in terms of its features, has grown greatly from its original
+    objectives. This is, however, not to say that the language implemented had become
+    unfaithful to its original design, it has just grown to become a superset
+    of the language I originally laid out.
 
+    The implementation's prelude, and any other libraries that others
+    may make allow for the language to continue to grow and mold, this is
+    again made especially easy since the introduction of macros to the language.
+
+  \subsection{Future Improvements, Potential \& Ideas}
+    Right now, there is one major improvement that the implementation needs,
+    and that is performance.  Performance can be increased in a number of ways,
+    however the most notable and obvious ways to do so is to:
+    \begin{itemize}
+      \item \textbf{Implementation Language} --- It was never really a good idea
+      to write an \emph{interpreter} in an \emph{interpreted} language such as
+      Python, if I were to rewrite the implementation in my free-time, I'd
+      certainly do so in C/C++ or Rust. Of course, doing this adds the extra work
+      of having to write a garbage collector amongst other things, as I can no
+      longer rely on the Python implementation to do those sorts of things
+      for me.
+      \item \textbf{Interpretation Style} --- Right now, the language interpreter
+      is an AST traversing interpreter, this means that it walks up and down
+      the AST in order to execute it. A much more performant approach,
+      and in fact how most major interpreted languages are implemented, is to
+      compile the AST in to a series of bytecode instructions that are then
+      executed by a virtual machine, mimicking how an actual computer works,
+      and these virtual machines can be very fast, some even JIT-compile their
+      instructions to machine-code on the fly, which can actually lead to speeds
+      comparable to those of compiled languages.
+      \item \textbf{Optimiser} --- This LISPY implementation performs absolutely
+      no optimisation on the program before executing it, everything you tell
+      LISPY to do, it will exactly.  In the future I might add something like
+      constant-folding to the parser, so say the code \code{(+ 2 3)} just becomes
+      \code{5} at compile-time, because there's no use in performing an addition
+      at run-time when the value is constant and trivially deducible at compile-time.
+      Another optimisation is short-circuiting conditionals evaluation, where
+      we can skip doing certain code if we know it will never run anyway, or runs
+      for no reason. Take for example the condition:
+      \code{(and (= 3 5) (something) (else that takes too long))}.
+      Three will never be equal to five, and thus testing if the other
+      conditions are true as well is a total waste of time.
+    \end{itemize}
+
+    These are only a few of the optimisation I could integrate into my
+    implementation. But, alas, I hadn't enough time nor resources to throw
+    myself into building a fully-fledged Lisp interpreter with all the modern
+    bells and whistles possible.
+
+  \subsection{Users' Usage \& Feedback}
+    TODO.
 
   \clearpage
   \let\Section\section

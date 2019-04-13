@@ -131,7 +131,7 @@ def load_file(name):
         EX.warn(CURRENT_LOCATION,
             ('File at absolute location: `{}\'\n'
             + 'has already been loaded/required.\n'
-            + 'This will almost certainly cause'
+            + 'This will almost certainly cause '
             + 'immutability errors...').format(abspath))
     LOADED_FILES.append(abspath)
     PROGRAM_STRING = None
@@ -723,12 +723,14 @@ def all_numerics(ops):
             return EX.throw(op.location,
                 'All arguments to this macro must\n'
                 + 'be of type `Numeric`!')
+    return None
 
 def _sub_macro(node):
     if len(node.operands) == 0:
         return EX.throw(node.value.location,
             "Please provide at least one argument.")
-    all_numerics(node.operands)
+    e = all_numerics(node.operands)
+    if e: return e
     if len(node.operands) == 1:
         return -evaluate(node.operands[0])
     result = evaluate(node.operands[0]) - sum(map(evaluate, node.operands[1:]))
@@ -738,7 +740,8 @@ def _mul_macro(node):
     if len(node.operands) == 0:
         return EX.throw(node.value.location,
             "Please provide at least one argument.")
-    all_numerics(node.operands)
+    e = all_numerics(node.operands)
+    if e: return e
     r = reduce(lambda a, b: a * b, map(evaluate, node.operands))
     return r
 
@@ -746,7 +749,8 @@ def _div_macro(node):
     if len(node.operands) == 0:
         return EX.throw(node.value.location,
             "Please provide at least one argument.")
-    all_numerics(node.operands)
+    e = all_numerics(node.operands)
+    if e: return e
     r = reduce(lambda a, b: a / b, map(evaluate, node.operands))
     return r
 
@@ -754,7 +758,8 @@ def _mod_macro(node):
     if len(node.operands) == 0:
         return EX.throw(node.value.location,
             "Please provide at least one argument.")
-    all_numerics(node.operands)
+    e = all_numerics(node.operands)
+    if e: return e
     r = reduce(lambda a, b: a % b, map(evaluate, node.operands))
     return r
 
@@ -1152,13 +1157,15 @@ def execute_method(node, args=None):
 
 # All evaluation starts here:
 def visit(AST, pc=0, string=None):
-    AST = parsing.preprocess(AST)
     global LAST_RETURNED, LAST_EVALUATED
-    if conf.DEBUG: print("\nVisiting (`{}\' branch: {}):\n".format(AST.file, pc), AST, sep="")
+    if conf.DEBUG: print("\nVisiting (`{}\' branch: {}):\n".format(AST.file, pc))
     global EX
     if string is not None:
+        if parsing.EX:
+            parsing.EX.nofile(string)
         EX.nofile(string)
     ret = tree.Nil({'line': 1, 'column': 1, 'filename': AST.file})
+    AST = parsing.preprocess(AST)
     if len(AST) == 0:
         return ret
     try:
@@ -1181,7 +1188,7 @@ def visit(AST, pc=0, string=None):
 def walk(AST):
     global EX, LAST_RETURNED, LAST_EVALUATED
     EX = err.Thrower(err.EXEC, AST.file)
-    if not symbol_declared(CURRENT_SCOPES, '$PRELUDE_LOADING'):
+    if not symbol_declared(CURRENT_SCOPES, '$PRELUDE_LOADED'):
         main_table = lookup_table(0x0)
 
         here = os.path.dirname(os.path.abspath(__file__))
