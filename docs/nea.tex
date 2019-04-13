@@ -1177,7 +1177,7 @@ evaluate (node) =>
       \graph{lexer_regex}{The set of regex matchable tokens. (\code{/lispy/lexing.py})}
       Some of these really don't require regular expressions, and are in fact
       not matched using them, but I left them there so in order to outline
-      what sort if tokens exist.
+      what sort of tokens exist.
 
       Most of the regular expressions are quite self explanatory, but I'd like
       to through a few of them.  The first thing I want to bring your attention
@@ -2755,18 +2755,28 @@ Visiting (`testing.lispy' branch: 4):
     The \code{/samples} directory contains 14 example programs written
     in LISPY, here they are in alphabetical order:
     \begin{Verbatim}
-      blocks.lispy   deep.lispy	  fizzbuzz.lispy   integral.lispy  strings.lispy
-      compose.lispy  eval.lispy	  functions.lispy  internal.lispy
+atoms.lispy	      deep.lispy	    functions.lispy lists.lispy
+blocks.lispy	    eval.lispy	    ifact.lispy     strings.lispy
+compose.lispy	    factorial.lispy integral.lispy
+declarative.lispy fizzbuzz.lispy  internal.lispy
     \end{Verbatim}
 
     Each file has been used to test certain features as I was developing them.
     Here is a list of what each file does / tests:
 
     \begin{itemize}
+      \item \code{atoms.lispy} --- Shows usage and basic syntax for Atoms.
+      \item \code{lists.py} --- Extensively demonstrating every in-built
+      list manipulation method.
+      \item \code{factorial.lispy} --- A simple recursive factorial calculator.
+      \item \code{ifact.lispy} --- An iterative implementation of the factorial
+      calculator, to contrast against the recursive solution in terms of speed.
       \item \code{blocks.lispy} --- Demonstrates the usage of code blocks, i.e.
       the \code{(do ...)} block.
       \item \code{deep.lispy} --- Tests depth of call table lookups by nesting
       lambdas, as I had previous issues with this.
+      \item \code{declarative.lispy} --- Shows off some prelude functions, mostly
+      things that belong to the functional/declarative paradigm of programming.
       \item \code{fizzbuzz.lispy} --- This is the classic FizzBuzz program.
       It runs through a range of numbers, and prints each one of them, however,
       when it encounters a multiple of 3, it prints ``Fizz'', on a multiple of
