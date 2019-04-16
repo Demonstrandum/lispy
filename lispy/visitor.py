@@ -1173,12 +1173,24 @@ def visit(AST, pc=0, string=None):
         LAST_RETURNED = ret
         LAST_EVALUATED = LAST_RETURNED
     except RecursionError:
-        return EX.throw(CURRENT_LOCATION,
+        EX.throw(CURRENT_LOCATION,
             'Recursion level too deep!\n'
             + 'You might have an infinite loop somewhere,\n'
             + 'or you\'re recursing over something too many times.\n\n'
             + 'python      call-stack depth:  {},\n'.format(conf.RECURSION_LIMIT)
             + 'interpreter call-stack depth:  {}.'  .format(len(CALL_STACK)))
+        sys.exit(1)
+    except Exception as e:
+        import traceback
+        print('\n\n')
+        print('============================')
+        print('=== LISPY Internal Error ===\n')
+        print('--> The following error was produced:')
+        print('--| '+ ('\n--| '.join(str(traceback.format_exc()).split('\n')))[:-4] )
+        EX.throw(CURRENT_LOCATION,
+            'LISPY produced an internal error at around this\n'
+            + 'line of code being executed. See the traceback.')
+        sys.exit(1)
     if conf.RECOVERING_FROM_ERROR:
         conf.RECOVERING_FROM_ERROR = False
     if pc + 1 >= len(AST):
