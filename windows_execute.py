@@ -45,7 +45,7 @@ def main():
     root = tk.Tk()
     root.title('LISPY - Graphical Interface')
 
-    root.attributes('-type', 'dialog')
+    #root.attributes('-type', 'dialog')
     root.style = ttk.Style()
     root.style.theme_use('classic')
     root.configure(bg='white')
