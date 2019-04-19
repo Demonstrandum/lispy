@@ -1,6 +1,8 @@
 import sys
 from io import StringIO
 
+from importlib import reload
+
 import tkinter as tk
 from tkinter import filedialog
 import tkinter.ttk as ttk
@@ -13,24 +15,31 @@ def term_print(*args):
     old_stdout.write(' '.join(args) + '\n')
 
 out_log = StringIO()
-sys.stdout = out_log
-sys.stderr = out_log
 
 # === Tk === #
 def ask_file(root, box):
+    global lispy
     out_log.truncate(0)
     out_log.seek(0)
 
     root.filename = tk.filedialog.askopenfilename(initialdir = ".", title = "Select LISPY file",filetypes = (("LISPY File","*.lispy"),("all files","*")))
     
+    term_print('File found:', root.filename)
 
     import lispy
     lispy.config.EXIT_ON_ERROR = False
     lispy.config.COLORS = False
+    
 
+    sys.stdout = out_log
+    sys.stderr = out_log
+    
     lispy.run(root.filename)
-    del sys.modules['lispy']
-    del lispy
+    
+    sys.stdout = old_stdout
+    sys.stderr = old_stderr
+   
+    lispy = reload(lispy)
 
     box.configure(state='normal')
     box.delete(1.0, tk.END)
