@@ -27,8 +27,10 @@ def ask_file(root, box):
     term_print('File found:', root.filename)
 
     import lispy
-    lispy.config.EXIT_ON_ERROR = False
-    lispy.config.COLORS = False
+    from lispy import config
+
+    config.EXIT_ON_ERROR = False
+    config.COLORS = False
     
 
     sys.stdout = out_log
@@ -38,9 +40,29 @@ def ask_file(root, box):
     
     sys.stdout = old_stdout
     sys.stderr = old_stderr
-   
-    lispy = reload(lispy)
-
+    
+    print('refs to lispy: ', sys.getrefcount(lispy))
+    if 'lispy' in  sys.modules:
+        del sys.modules['lispy.config']
+        del lispy.config
+        del sys.modules['lispy.visitor']
+        del lispy.visitor
+        del sys.modules['lispy.parsing']
+        del lispy.parsing
+        del sys.modules['lispy.lexing']
+        del lispy.lexing
+        del sys.modules['lispy.tree']
+        del lispy.tree
+        del sys.modules['lispy.err']
+        del lispy.err
+        del sys.modules['lispy']
+        del lispy
+        del config
+    try:
+        print('refs now: ', sys.getrefcount(lispy))
+    except:
+        print('lispy not found')
+        print('modules: ', sys.modules.keys())
     box.configure(state='normal')
     box.delete(1.0, tk.END)
     box.insert(1.0, out_log.getvalue())
