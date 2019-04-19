@@ -1,6 +1,0 @@
-\begin{Verbatim}[commandchars=\\\{\}]
-        \PYG{p}{(}\PYG{n+nv}{define} \PYG{n+nv}{macro} \PYG{p}{(}\PYG{n+nv}{sum\PYGZhy{}and\PYGZhy{}add\PYGZhy{}one} \PYG{n+nv}{a} \PYG{n+nv}{b}\PYG{p}{)}
-          \PYG{p}{(}\PYG{n+nb}{+} \PYG{n+nv}{a} \PYG{n+nv}{b} \PYG{l+m+mi}{1}\PYG{p}{))}
-
-        \PYG{p}{(}\PYG{n+nb}{print} \PYG{p}{(}\PYG{n+nv}{sum\PYGZhy{}and\PYGZhy{}add\PYGZhy{}one} \PYG{p}{(}\PYG{n+nb}{+} \PYG{l+m+mi}{3} \PYG{l+m+mi}{1}\PYG{p}{)} \PYG{l+m+mi}{5}\PYG{p}{))}
-\end{Verbatim}

@@ -1,8 +1,0 @@
-\begin{Verbatim}[commandchars=\\\{\}]
-        \PYG{n}{visit} \PYG{o}{::} \PYG{n+no}{Tree} \PYG{o}{\PYGZhy{}\PYGZgt{}} \PYG{n+no}{Nothing}
-        \PYG{n}{visit} \PYG{p}{(}\PYG{n+no}{AST}\PYG{p}{)} \PYG{o}{=\PYGZgt{}}
-          \PYG{k}{for} \PYG{n}{child} \PYG{k}{in} \PYG{n+no}{AST} \PYG{o}{=\PYGZgt{}}
-            \PYG{n}{evaluate} \PYG{p}{(}\PYG{n}{child}\PYG{p}{)}
-          \PYG{c+c1}{\PYGZsh{} The most basic idea of the visitor, although it may}
-          \PYG{c+c1}{\PYGZsh{}   do error handling an other things as well.}
-\end{Verbatim}

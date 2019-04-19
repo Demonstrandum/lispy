@@ -1,7 +1,0 @@
-\begin{Verbatim}[commandchars=\\\{\}]
-      \PYG{p}{(}\PYG{n+nv}{define} \PYG{n+nv}{macro} \PYG{p}{(}\PYG{n+nv}{while} \PYG{k+kt}{condition} \PYG{n+nv}{body}\PYG{p}{)}
-        \PYG{p}{(}\PYG{n+nv}{iterate}
-          \PYG{p}{(}\PYG{k}{if} \PYG{p}{(}\PYG{n+nb}{eval} \PYG{k+kt}{condition}\PYG{p}{)}
-            \PYG{p}{(}\PYG{n+nb}{eval} \PYG{n+nv}{body}\PYG{p}{)}
-            \PYG{n+nb}{break}\PYG{p}{)))}
-\end{Verbatim}

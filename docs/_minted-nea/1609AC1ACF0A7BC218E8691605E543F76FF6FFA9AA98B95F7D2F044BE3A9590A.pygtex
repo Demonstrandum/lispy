@@ -1,5 +1,0 @@
-\begin{Verbatim}[commandchars=\\\{\}]
-        \PYG{p}{(}\PYG{n+nv}{f} \PYG{p}{(}\PYG{n+nv}{g} \PYG{p}{(}\PYG{n+nv}{h} \PYG{p}{(}\PYG{n+nv}{i} \PYG{p}{(}\PYG{n+nv}{j} \PYG{p}{(}\PYG{n+nv}{k} \PYG{n+nv}{x} \PYG{n+nv}{y}\PYG{p}{))))))} \PYG{c+c1}{;; read: f of g of h of i of j of k of x and y.}
-        \PYG{c+c1}{;; This can be better written as a composition.}
-        \PYG{p}{((}\PYG{n+nv}{\PYGZlt{}\PYGZgt{}} \PYG{n+nv}{f} \PYG{n+nv}{g} \PYG{n+nv}{h} \PYG{n+nv}{i} \PYG{n+nv}{j} \PYG{n+nv}{k}\PYG{p}{)} \PYG{n+nv}{x} \PYG{n+nv}{y}\PYG{p}{)} \PYG{c+c1}{;; Far fewer parentheses, easier to read, and shorter.}
-\end{Verbatim}
