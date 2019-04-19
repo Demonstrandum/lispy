@@ -1,17 +1,9 @@
 import sys
 from io import StringIO
-from importlib.machinery import SourceFileLoader
-
-import lispy
-lispy.config.EXIT_ON_ERROR = False
-execute = SourceFileLoader('execute', 'execute').load_module()
-lispy.config.COLORS = False
 
 import tkinter as tk
 from tkinter import filedialog
 import tkinter.ttk as ttk
-
-ARGV = sys.argv
 
 # === Capture all output to StringIO === #
 old_stdout = sys.stdout
@@ -31,9 +23,14 @@ def ask_file(root, box):
 
     root.filename = tk.filedialog.askopenfilename(initialdir = ".", title = "Select LISPY file",filetypes = (("LISPY File","*.lispy"),("all files","*")))
     
-    ARGV.append(root.filename)
-    execute.main()
-    ARGV.pop()
+
+    import lispy
+    lispy.config.EXIT_ON_ERROR = False
+    lispy.config.COLORS = False
+
+    lispy.run(root.filename)
+    del sys.modules['lispy']
+    del lispy
 
     box.configure(state='normal')
     box.delete(1.0, tk.END)
