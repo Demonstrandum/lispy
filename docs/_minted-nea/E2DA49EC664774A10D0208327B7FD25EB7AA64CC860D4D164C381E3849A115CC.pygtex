@@ -1,0 +1,4 @@
+\begin{Verbatim}[commandchars=\\\{\}]
+    \PYG{n}{RECURSION\PYGZus{}LIMIT} \PYG{o}{=} \PYG{n}{YOUR\PYGZus{}LIMIT\PYGZus{}HERE}
+    \PYG{n}{sys}\PYG{o}{.}\PYG{n}{setrecursionlimit}\PYG{p}{(}\PYG{n}{RECURSION\PYGZus{}LIMIT}\PYG{p}{)}
+\end{Verbatim}

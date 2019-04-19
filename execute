@@ -7,15 +7,19 @@ def argument_error(msg):
     print('Argument Error:')
     print('   >>>  ' + '\n\t'.join(msg.split('\n')))
 
-if len(sys.argv) > 1:
-    files = filter(lambda e: e[-6:] == '.lispy', sys.argv)
-    files = list(files)
-    if len(files) >= 1:
-        for file in files:
-            lispy.run(file)
+def main():
+    if len(sys.argv) > 1:
+        files = filter(lambda e: e[-6:] == '.lispy', sys.argv)
+        files = list(files)
+        if len(files) >= 1:
+            for file in files:
+                lispy.run(file)
+        else:
+            argument_error(
+            'At least one filename needs to be supplied to'
+            + '\nthe LISPY interpreter. Filename needs to end in `.lispy\'.')
     else:
-        argument_error(
-        'At least one filename needs to be supplied to'
-        + '\nthe LISPY interpreter. Filename needs to end in `.lispy\'.')
-else:
-    argument_error('Please supply at least 1 argument to the interpreter.')
+        argument_error('Please supply at least 1 argument to the interpreter.')
+
+if __name__ == '__main__':
+    main()

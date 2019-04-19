@@ -1,0 +1,40 @@
+\begin{Verbatim}[commandchars=\\\{\}]
+\PYG{n+no}{DataType} \PYG{n+no}{SymbolTable} \PYG{p}{(}\PYG{n}{scope\PYGZus{}id}\PYG{p}{)} \PYG{o}{=\PYGZgt{}}
+  \PYG{n+nb}{self}\PYG{o}{.}\PYG{n}{id} \PYG{o}{=} \PYG{n}{scope\PYGZus{}id} \PYG{c+c1}{\PYGZsh{} A unique ID for each scope.}
+  \PYG{n+nb}{self}\PYG{o}{.}\PYG{n}{local} \PYG{o}{=} \PYG{l+s+sx}{\PYGZpc{}\PYGZob{}\PYGZcb{}} \PYG{c+c1}{\PYGZsh{} A hash\PYGZhy{}table of all local variables to this scope.}
+  \PYG{n+nb}{self}\PYG{o}{.}\PYG{n}{frozen} \PYG{o}{=} \PYG{l+s+ss}{:false} \PYG{c+c1}{\PYGZsh{} Whether the symbol table can be modified}
+                       \PYG{c+c1}{\PYGZsh{} (lambdas will have frozen super\PYGZhy{}scopes).}
+  \PYG{n+nb}{self}\PYG{o}{.}\PYG{n}{bind} \PYG{p}{(}\PYG{n}{symbol}\PYG{p}{,} \PYG{n}{value}\PYG{p}{)} \PYG{o}{=\PYGZgt{}}
+    \PYG{n+nb}{self}\PYG{o}{.}\PYG{n}{local}\PYG{o}{[}\PYG{n}{symbol}\PYG{o}{]} \PYG{o}{=} \PYG{n}{value}
+  \PYG{n+nb}{self}\PYG{o}{.}\PYG{n}{clean} \PYG{o}{=\PYGZgt{}}
+    \PYG{n+nb}{self}\PYG{o}{.}\PYG{n}{local} \PYG{o}{=} \PYG{l+s+sx}{\PYGZpc{}\PYGZob{}\PYGZcb{}} \PYG{c+c1}{\PYGZsh{} Empty the local variables.}
+
+\PYG{c+c1}{\PYGZsh{} \PYGZhy{}\PYGZhy{}\PYGZhy{} Define all the scope stack we need to keep track of:}
+
+\PYG{n+no}{ALL\PYGZus{}SCOPES}    \PYG{o}{=} \PYG{k+kp}{new} \PYG{n+no}{Stack} \PYG{n}{of} \PYG{n+no}{SymbolTable}
+\PYG{n+no}{PARENT\PYGZus{}SCOPES} \PYG{o}{=} \PYG{k+kp}{new} \PYG{n+no}{Stack} \PYG{n}{of} \PYG{n+nb}{Integer}  \PYG{c+c1}{\PYGZsh{} Integer IDs (i.e. unique scope IDs)}
+
+\PYG{n+no}{CALL\PYGZus{}STACK}    \PYG{o}{=} \PYG{k+kp}{new} \PYG{n+no}{Stack} \PYG{n}{of} \PYG{n+no}{SymbolTable}
+\PYG{n+no}{GLOBAL\PYGZus{}FROZEN} \PYG{o}{=} \PYG{k+kp}{new} \PYG{n+no}{Stack} \PYG{n}{of} \PYG{n+no}{SymbolTable} \PYG{n}{where} \PYG{o}{.}\PYG{n}{frozen} \PYG{o}{\PYGZlt{}\PYGZhy{}} \PYG{l+s+ss}{:true}
+\PYG{c+c1}{\PYGZsh{} \PYGZhy{}\PYGZhy{}\PYGZhy{}}
+
+\PYG{c+c1}{\PYGZsh{} A type for function definitions.}
+\PYG{n+no}{DataType} \PYG{n+no}{FuncDef} \PYG{p}{(}\PYG{n}{scope}\PYG{p}{,} \PYG{n+nb}{name}\PYG{p}{,} \PYG{n}{args}\PYG{p}{,} \PYG{n}{subtree}\PYG{p}{)} \PYG{o}{=\PYGZgt{}}
+  \PYG{n+nb}{self}\PYG{o}{.}\PYG{n}{name} \PYG{o}{=} \PYG{n+nb}{name}
+  \PYG{n+nb}{self}\PYG{o}{.}\PYG{n}{subtree} \PYG{o}{=} \PYG{n}{subtree}
+  \PYG{n+nb}{self}\PYG{o}{.}\PYG{n}{scope} \PYG{o}{=} \PYG{n}{scope}
+  \PYG{n+nb}{self}\PYG{o}{.}\PYG{n}{table} \PYG{o}{=} \PYG{n}{find}\PYG{p}{(}\PYG{n}{scope}\PYG{p}{,} \PYG{l+s+ss}{:id}\PYG{p}{,} \PYG{n+no}{ALL\PYGZus{}SCOPES}\PYG{p}{)}
+  \PYG{n+nb}{self}\PYG{o}{.}\PYG{n}{args} \PYG{o}{=} \PYG{n}{args}
+
+  \PYG{n+nb}{self}\PYG{o}{.}\PYG{n}{call} \PYG{p}{(}\PYG{n}{operands}\PYG{p}{)} \PYG{o}{=\PYGZgt{}}  \PYG{c+c1}{\PYGZsh{} What happens when we call a}
+    \PYG{n+no}{PARENT\PYGZus{}SCOPES}\PYG{o}{.}\PYG{n}{push} \PYG{p}{(}\PYG{n+nb}{self}\PYG{o}{.}\PYG{n}{scope}\PYG{p}{)} \PYG{c+c1}{\PYGZsh{}    user defined function.}
+    \PYG{n+no}{CALL\PYGZus{}STACK}\PYG{o}{.}\PYG{n}{push} \PYG{p}{(}\PYG{n+nb}{self}\PYG{o}{.}\PYG{n}{table}\PYG{p}{)} \PYG{c+c1}{\PYGZsh{} Push appropriate scopes.}
+    \PYG{k}{for} \PYG{n}{i} \PYG{k}{in} \PYG{n}{length} \PYG{p}{(}\PYG{n+nb}{self}\PYG{o}{.}\PYG{n}{args}\PYG{p}{)} \PYG{o}{=\PYGZgt{}}
+      \PYG{n+nb}{self}\PYG{o}{.}\PYG{n}{table}\PYG{o}{.}\PYG{n}{bind}\PYG{p}{(}\PYG{n+nb}{self}\PYG{o}{.}\PYG{n}{args}\PYG{o}{[}\PYG{n}{i}\PYG{o}{]}\PYG{p}{,} \PYG{n}{operands}\PYG{o}{[}\PYG{n}{i}\PYG{o}{]}\PYG{p}{)} \PYG{c+c1}{\PYGZsh{} Bind arguments,}
+                               \PYG{c+c1}{\PYGZsh{} to the call stack\PYGZsq{}s latest scope.}
+    \PYG{n}{evaluate}\PYG{p}{(}\PYG{n+nb}{self}\PYG{o}{.}\PYG{n}{subtree}\PYG{p}{)} \PYG{c+c1}{\PYGZsh{} Finally evaluate the body.}
+
+    \PYG{n+no}{PARENT\PYGZus{}SCOPES}\PYG{o}{.}\PYG{n}{pop}
+    \PYG{n+no}{CALL\PYGZus{}STACK}\PYG{o}{.}\PYG{n}{pop} \PYG{c+c1}{\PYGZsh{} Pop the symbol\PYGZhy{}table off again.}
+    \PYG{n+nb}{self}\PYG{o}{.}\PYG{n}{table}\PYG{o}{.}\PYG{n}{clean} \PYG{c+c1}{\PYGZsh{} Get rid of old bindings.}
+\end{Verbatim}

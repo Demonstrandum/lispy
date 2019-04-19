@@ -1,0 +1,7 @@
+\begin{Verbatim}[commandchars=\\\{\},codes={\catcode`\$=3\catcode`\^=7\catcode`\_=8}]
+        \PYG{p}{(}\PYG{n+nv}{define} \PYG{n+nv}{macro}    \PYG{p}{(}\PYG{n+nv}{add\PYGZhy{}3\PYGZhy{}macro} \PYG{n+nv}{x}\PYG{p}{)} \PYG{p}{(}\PYG{n+nb}{+} \PYG{n+nv}{x} \PYG{l+m+mi}{3}\PYG{p}{)}\PYG{p}{)}
+        \PYG{p}{(}\PYG{n+nv}{define} \PYG{k}{function} \PYG{p}{(}\PYG{n+nv}{add\PYGZhy{}3\PYGZhy{}func}  \PYG{n+nv}{x}\PYG{p}{)} \PYG{p}{(}\PYG{n+nb}{+} \PYG{n+nv}{x} \PYG{l+m+mi}{3}\PYG{p}{)}\PYG{p}{)}
+
+        \PYG{p}{(}\PYG{n+nb}{print} \PYG{p}{(}\PYG{n+nv}{add\PYGZhy{}3\PYGZhy{}macro} \PYG{l+m+mi}{2}\PYG{p}{)} \PYG{l+s}{\PYGZdq{}\PYGZbs{}n\PYGZdq{}}\PYG{p}{)} \PYG{esc}{$\Rightarrow$} \PYG{l+m+mi}{5}
+        \PYG{p}{(}\PYG{n+nb}{print} \PYG{p}{(}\PYG{n+nv}{add\PYGZhy{}3\PYGZhy{}func}  \PYG{l+m+mi}{2}\PYG{p}{)} \PYG{l+s}{\PYGZdq{}\PYGZbs{}n\PYGZdq{}}\PYG{p}{)} \PYG{esc}{$\Rightarrow$} \PYG{l+m+mi}{5}
+\end{Verbatim}

@@ -3,6 +3,8 @@ serialised_trees/
 
 # general
 bf-lambda-calc.lispy
+.stdout_log.txt
+.stderr_log.txt
 
 # python stuff
 __pycache__/

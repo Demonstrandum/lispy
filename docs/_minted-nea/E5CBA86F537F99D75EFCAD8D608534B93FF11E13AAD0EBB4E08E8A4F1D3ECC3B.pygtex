@@ -1,0 +1,33 @@
+\begin{Verbatim}[commandchars=\\\{\},codes={\catcode`\$=3\catcode`\^=7\catcode`\_=8}]
+  \PYG{k}{struct} \PYG{n}{cons\PYGZus{}cell} \PYG{p}{\PYGZob{}}
+    \PYG{n}{atom} \PYG{n}{data}\PYG{p}{;}
+    \PYG{k}{struct} \PYG{n}{cons\PYGZus{}cell} \PYG{o}{*}\PYG{n}{next}\PYG{p}{;}
+  \PYG{p}{\PYGZcb{};}
+
+  \PYG{k}{typedef} \PYG{k}{struct} \PYG{n}{cons\PYGZus{}cell} \PYG{o}{*}\PYG{n}{cons}\PYG{p}{;}
+
+  \PYG{c+c1}{// Thus, (x y z) will be:}
+
+  \PYG{n}{atom} \PYG{n}{x} \PYG{o}{=} \PYG{n}{Symbol}\PYG{p}{(}\PYG{l+s+sc}{\PYGZsq{}x\PYGZsq{}}\PYG{p}{);}
+  \PYG{n}{atom} \PYG{n}{y} \PYG{o}{=} \PYG{n}{Symbol}\PYG{p}{(}\PYG{l+s+sc}{\PYGZsq{}y\PYGZsq{}}\PYG{p}{);}
+  \PYG{n}{atom} \PYG{n}{z} \PYG{o}{=} \PYG{n}{Symbol}\PYG{p}{(}\PYG{l+s+sc}{\PYGZsq{}z\PYGZsq{}}\PYG{p}{);}
+
+  \PYG{n}{cons} \PYG{n+nf}{make\PYGZus{}cons}\PYG{p}{()} \PYG{p}{\PYGZob{}}
+    \PYG{n}{cons} \PYG{n}{parent} \PYG{o}{=} \PYG{n}{malloc}\PYG{p}{(}\PYG{k}{sizeof}\PYG{p}{(}\PYG{k}{struct} \PYG{n}{cons\PYGZus{}cell}\PYG{p}{));}
+    \PYG{n}{parent}\PYG{o}{\PYGZhy{}\PYGZgt{}}\PYG{n}{next} \PYG{o}{=} \PYG{n+nb}{NULL}\PYG{p}{;}
+
+    \PYG{k}{return} \PYG{n}{parent}\PYG{p}{;}
+  \PYG{p}{\PYGZcb{}}
+
+  \PYG{c+cm}{/*  I could simply write a quick little function for what}
+\PYG{c+cm}{   *  I\PYGZsq{}m about to do, but I\PYGZsq{}ll write out the construction of the}
+\PYG{c+cm}{   *  cons list explicitly, such that it\PYGZsq{}s more obvious what we\PYGZsq{}re doing.}
+\PYG{c+cm}{   */}
+  \PYG{n}{cons} \PYG{n}{list} \PYG{o}{=} \PYG{n}{make\PYGZus{}cons}\PYG{p}{();}
+  \PYG{n}{list}\PYG{o}{\PYGZhy{}\PYGZgt{}}\PYG{n}{data} \PYG{o}{=} \PYG{n}{x}\PYG{p}{;}
+  \PYG{n}{list}\PYG{o}{\PYGZhy{}\PYGZgt{}}\PYG{n}{next} \PYG{o}{=} \PYG{n}{make\PYGZus{}cons}\PYG{p}{();}
+  \PYG{n}{list}\PYG{o}{\PYGZhy{}\PYGZgt{}}\PYG{n}{next}\PYG{o}{\PYGZhy{}\PYGZgt{}}\PYG{n}{data} \PYG{o}{=} \PYG{n}{y}\PYG{p}{;}
+  \PYG{n}{list}\PYG{o}{\PYGZhy{}\PYGZgt{}}\PYG{n}{next}\PYG{o}{\PYGZhy{}\PYGZgt{}}\PYG{n}{next} \PYG{o}{=} \PYG{n}{make\PYGZus{}cons}\PYG{p}{();}
+  \PYG{n}{list}\PYG{o}{\PYGZhy{}\PYGZgt{}}\PYG{n}{next}\PYG{o}{\PYGZhy{}\PYGZgt{}}\PYG{n}{next}\PYG{o}{\PYGZhy{}\PYGZgt{}}\PYG{n}{data} \PYG{o}{=} \PYG{n}{z}\PYG{p}{;}
+  \PYG{n}{list}\PYG{o}{\PYGZhy{}\PYGZgt{}}\PYG{n}{next}\PYG{o}{\PYGZhy{}\PYGZgt{}}\PYG{n}{next}\PYG{o}{\PYGZhy{}\PYGZgt{}}\PYG{n}{next} \PYG{o}{=} \PYG{n+nb}{NULL}\PYG{p}{;}  \PYG{c+c1}{// Same as (x . (y . (z . NULL)))}
+\end{Verbatim}

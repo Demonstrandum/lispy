@@ -1,0 +1,11 @@
+\begin{Verbatim}[commandchars=\\\{\},codes={\catcode`\$=3\catcode`\^=7\catcode`\_=8}]
+        \PYG{n+no}{INTERNALS} \PYG{o}{=} \PYG{p}{\PYGZob{}}
+          \PYG{l+s+ss}{:define} \PYG{o}{=}\PYG{o}{\PYGZgt{}} \PYG{n}{\PYGZus{}\PYGZus{}DEFINITION\PYGZus{}MACRO\PYGZus{}\PYGZus{}}\PYG{p}{,}
+          \PYG{l+s+ss}{:+}      \PYG{o}{=}\PYG{o}{\PYGZgt{}} \PYG{n}{\PYGZus{}\PYGZus{}ADDITION\PYGZus{}MACRO\PYGZus{}\PYGZus{}}\PYG{p}{,}
+          \PYG{l+s+ss}{:\PYGZhy{}}      \PYG{o}{=}\PYG{o}{\PYGZgt{}} \PYG{n}{\PYGZus{}\PYGZus{}SUBTRACTION\PYGZus{}MACRO\PYGZus{}\PYGZus{}}\PYG{p}{,}
+
+          \PYG{esc}{$\vdots$}
+
+          \PYG{n}{etc}\PYG{o}{.}
+        \PYG{p}{\PYGZcb{}}
+\end{Verbatim}

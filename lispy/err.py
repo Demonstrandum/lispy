@@ -10,7 +10,7 @@ EXEC  = 'Execution'
 def err_print(*args, **kwargs):
     print(*args, file=sys.stderr, **kwargs)
 
-class c:
+class ANSIColors:
     HEADER = '\033[95m'
     OKBLUE = '\033[94m'
     OKGREEN = '\033[92m'
@@ -19,11 +19,23 @@ class c:
     ENDC = '\033[0m'
     BOLD = '\033[1m'
     UNDERLINE = '\033[4m'
+class NoColors:
+    HEADER   = ''
+    OKBLUE   = ''
+    OKGREEN  = ''
+    WARNING  = ''
+    FAIL     = ''
+    ENDC     = ''
+    BOLD     = ''
+    UNDERLINE= ''
 
 NIL_ERROR = tree.Nil({'line': -1, 'column': -1, 'filename': 'ERROR'})
 
 def Message(message_type):
     def TypeOfMessage(err_type, loc, string, file, prog=None):
+        c = NoColors
+        if conf.COLORS:
+            c = ANSIColors
         if conf.RECOVERING_FROM_ERROR:
             return NIL_ERROR
         lines = ""
@@ -54,7 +66,10 @@ def Message(message_type):
         span = 1
         if 'span' in loc.keys():
             span = loc['span']
-        snippet += (' ' * (len(snippet) - len(snip) + loc['column'] - 20)) + (c.BOLD + c.FAIL + '^' * span + c.ENDC)
+        offset = 3
+        if conf.COLORS:
+            offset = 20
+        snippet += (' ' * (len(snippet) - len(snip) + loc['column'] - offset)) + (c.BOLD + c.FAIL + '^' * span + c.ENDC)
         message = '{b}{f}[{lev}] - {kind} {msg_type}{e} at {b}({line}:{col}){e} in {where} `{u}{file}{e}\':\n\t{b}{w}>>>{e} {w}{msg}{e}'.format(
             b = c.BOLD,
             u = c.UNDERLINE,

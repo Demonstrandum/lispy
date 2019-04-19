@@ -1,0 +1,21 @@
+\begin{Verbatim}[commandchars=\\\{\},codes={\catcode`\$=3\catcode`\^=7\catcode`\_=8}]
+        \PYG{c+c1}{\PYGZsh{} Inside the evaluation function:}
+        \PYG{n}{evaluate} \PYG{o}{::} \PYG{p}{(}\PYG{n+no}{Call} \PYG{o}{|} \PYG{n+no}{Atomic}\PYG{p}{)} \PYG{o}{\PYGZhy{}\PYGZgt{}} \PYG{n+no}{Anything}
+        \PYG{n}{evaluate} \PYG{p}{(}\PYG{n}{node}\PYG{p}{)} \PYG{o}{=\PYGZgt{}}
+          \PYG{c+c1}{\PYGZsh{} ...}
+          \PYG{k}{if} \PYG{n}{typeof} \PYG{p}{(}\PYG{n}{node}\PYG{p}{)} \PYG{n}{is} \PYG{n+no}{Symbol} \PYG{o}{=\PYGZgt{}}
+            \PYG{k}{if} \PYG{n}{node}\PYG{o}{.}\PYG{n}{name} \PYG{n}{is} \PYG{k}{in} \PYG{n+no}{INTERNALS} \PYG{o}{=\PYGZgt{}}
+              \PYG{k}{return} \PYG{n+no}{INTERNALS}\PYG{o}{[}\PYG{n}{node}\PYG{o}{.}\PYG{n}{name}\PYG{o}{]}
+            \PYG{c+c1}{\PYGZsh{} Otherwise, look in the Symbol Tables}
+            \PYG{k}{return} \PYG{n}{lookup\PYGZus{}symbol} \PYG{p}{(}\PYG{n+no}{PARENT\PYGZus{}SCOPES}\PYG{p}{,} \PYG{n}{node}\PYG{o}{.}\PYG{n}{name}\PYG{p}{)}
+          \PYG{c+c1}{\PYGZsh{} ...}
+          \PYG{k}{if} \PYG{n}{typeof} \PYG{p}{(}\PYG{n}{node}\PYG{p}{)} \PYG{n}{is} \PYG{n+no}{Call} \PYG{o}{=\PYGZgt{}}
+            \PYG{n+nb}{caller} \PYG{o}{=} \PYG{n}{evaluate} \PYG{p}{(}\PYG{n}{node}\PYG{o}{.}\PYG{n}{caller}\PYG{p}{)}
+            \PYG{k}{if} \PYG{n}{typeof} \PYG{p}{(}\PYG{n+nb}{caller}\PYG{p}{)} \PYG{n}{is} \PYG{n+no}{FuncDef} \PYG{o}{=\PYGZgt{}}
+              \PYG{k}{return} \PYG{n+nb}{caller}\PYG{o}{.}\PYG{n}{call} \PYG{p}{(}\PYG{n+nb}{caller}\PYG{o}{.}\PYG{n}{operands}\PYG{p}{)}
+            \PYG{k}{if} \PYG{n+nb}{caller} \PYG{n}{is} \PYG{n+no}{INTERNAL\PYGZus{}DEFINITION} \PYG{o}{=\PYGZgt{}}
+              \PYG{k}{return} \PYG{n+nb}{caller} \PYG{p}{(}\PYG{n}{node}\PYG{p}{)}
+            \PYG{k}{else} \PYG{o}{=\PYGZgt{}}
+              \PYG{n+no}{Throw} \PYG{p}{(}\PYG{n+no}{UncallableCallerError}\PYG{p}{,} \PYG{l+s+s2}{\PYGZdq{}Can\PYGZsq{}t make call to this type...\PYGZdq{}}\PYG{p}{)}
+          \PYG{c+c1}{\PYGZsh{} ... etc.}
+\end{Verbatim}

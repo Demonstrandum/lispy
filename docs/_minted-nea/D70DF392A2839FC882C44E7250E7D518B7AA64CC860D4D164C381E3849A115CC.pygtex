@@ -1,0 +1,7 @@
+\begin{Verbatim}[commandchars=\\\{\}]
+        \PYG{n}{Token}\PYG{p}{(}\PYG{l+s+s1}{\PYGZsq{}NUMERIC\PYGZsq{}}\PYG{p}{,} \PYG{l+s+s2}{\PYGZdq{}310e\PYGZhy{}5\PYGZdq{}}\PYG{p}{,} \PYG{p}{\PYGZob{}}
+            \PYG{l+s+s1}{\PYGZsq{}line\PYGZsq{}}\PYG{p}{:} \PYG{l+m+mi}{12}\PYG{p}{,}
+            \PYG{l+s+s1}{\PYGZsq{}column\PYGZsq{}}\PYG{p}{:} \PYG{l+m+mi}{4}\PYG{p}{,}
+            \PYG{l+s+s1}{\PYGZsq{}filename\PYGZsq{}}\PYG{p}{:} \PYG{l+s+s1}{\PYGZsq{}\PYGZti{}/scripts/some\PYGZhy{}code.lispy\PYGZsq{}}
+        \PYG{p}{\PYGZcb{})}
+\end{Verbatim}

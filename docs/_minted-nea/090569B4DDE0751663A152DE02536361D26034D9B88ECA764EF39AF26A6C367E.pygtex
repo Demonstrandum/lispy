@@ -1,0 +1,13 @@
+\begin{Verbatim}[commandchars=\\\{\}]
+        \PYG{n}{\PYGZus{}\PYGZus{}ADDITION\PYGZus{}MACRO\PYGZus{}\PYGZus{}} \PYG{o}{::} \PYG{n+no}{Call} \PYG{o}{\PYGZhy{}\PYGZgt{}} \PYG{n+no}{Atomic}
+        \PYG{n}{\PYGZus{}\PYGZus{}ADDITION\PYGZus{}MACRO\PYGZus{}\PYGZus{}} \PYG{p}{(}\PYG{n}{call\PYGZus{}node}\PYG{p}{)} \PYG{o}{=\PYGZgt{}}
+          \PYG{n}{args} \PYG{o}{=} \PYG{n}{map}\PYG{p}{(}\PYG{n}{evaluate}\PYG{p}{,} \PYG{n}{call\PYGZus{}node}\PYG{o}{.}\PYG{n}{operands}\PYG{p}{)} \PYG{c+c1}{\PYGZsh{} Evaluate every operand first.}
+          \PYG{n}{sum} \PYG{o}{=} \PYG{l+m+mi}{0}
+          \PYG{k}{for} \PYG{n}{arg} \PYG{k}{in} \PYG{n}{args} \PYG{o}{=\PYGZgt{}}
+            \PYG{k}{if} \PYG{n}{typeof} \PYG{p}{(}\PYG{n}{arg}\PYG{p}{)} \PYG{n}{is} \PYG{o+ow}{not} \PYG{n+no}{Numeric} \PYG{o}{=\PYGZgt{}}
+              \PYG{n+no}{Throw} \PYG{p}{(}\PYG{n+no}{TypeError}\PYG{p}{,} \PYG{n}{arg} \PYG{o}{++} \PYG{l+s+s2}{\PYGZdq{} is not a Numeric type.\PYGZdq{}}\PYG{p}{)}
+            \PYG{n}{sum} \PYG{o}{=} \PYG{n}{sum} \PYG{o}{+} \PYG{n}{arg}
+          \PYG{k}{return} \PYG{n}{sum}
+          \PYG{c+c1}{\PYGZsh{} An internal iterative solution is much more efficient}
+          \PYG{c+c1}{\PYGZsh{}   than a more idiomatic recursive solution.}
+\end{Verbatim}

@@ -1,0 +1,206 @@
+\boolfalse {citerequest}\boolfalse {citetracker}\boolfalse {pagetracker}\boolfalse {backtracker}\relax 
+\babel@toc {english}{}
+\defcounter {refsection}{0}\relax 
+\contentsline {section}{\numberline {1}Analysis}{1}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsection}{\numberline {1.1}Motivation}{1}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsection}{\numberline {1.2}Research}{2}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsubsection}{\numberline {1.2.1}What makes a Lisp?}{2}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsubsection}{\numberline {1.2.2}Making our language executable}{2}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {section}{\numberline {2}Design of the language}{3}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsection}{\numberline {2.1}Symbolic Expressions}{4}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsection}{\numberline {2.2}Syntax}{6}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsubsection}{\numberline {2.2.1}Polish Notation / Prefix notation}{6}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsubsection}{\numberline {2.2.2}Unique Data-types}{7}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsubsection}{\numberline {2.2.3}Operators}{8}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsubsection}{\numberline {2.2.4}Key/Reserved Words \& Symbols}{9}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsubsection}{\numberline {2.2.5}Internal Macros}{9}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsection}{\numberline {2.3}Grammar}{10}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsubsection}{\numberline {2.3.1}Generating a Token Stream}{11}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsubsection}{\numberline {2.3.2}Generating an Abstract Syntax Tree}{14}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsubsection}{\numberline {2.3.3}Macro Expansion Phase}{17}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsection}{\numberline {2.4}Interpreter}{17}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsubsection}{\numberline {2.4.1}Scoping \& Binding Symbols in Symbol Tables}{19}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsubsection}{\numberline {2.4.2}Dealing with Internal Macros}{20}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsubsection}{\numberline {2.4.3}Interpretation Pattern}{21}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsubsection}{\numberline {2.4.4}Including a REPL}{22}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {section}{\numberline {3}Technical Solution \& Implementation}{23}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsection}{\numberline {3.1}Lexerical Analysis \& Tokenisation}{27}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsubsection}{\numberline {3.1.1}Matching through Regular Expressions}{27}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsubsection}{\numberline {3.1.2}Tokens and Token Streams}{29}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsubsection}{\numberline {3.1.3}Parentheses Balancer}{35}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsection}{\numberline {3.2}Parser}{36}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsubsection}{\numberline {3.2.1}Abstract Syntax Tree}{37}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsubsection}{\numberline {3.2.2}Bottom-up / Shift-reduce Pattern}{41}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsubsection}{\numberline {3.2.3}Preprocessing \& Macro Expansion Phase}{45}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsection}{\numberline {3.3}Interpreter/Evaluator}{49}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsubsection}{\numberline {3.3.1}Recursive Decent Evaluation}{50}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsubsection}{\numberline {3.3.2}Visiting \& Walking the Tree}{50}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsubsection}{\numberline {3.3.3}Loading External Files / Require Statement}{60}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsection}{\numberline {3.4}All Internal Macros}{62}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsubsection}{\numberline {3.4.1}\texttt {do} \& \texttt {prog}}{64}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsubsection}{\numberline {3.4.2}\texttt {yield}}{64}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsubsection}{\numberline {3.4.3}\texttt {require}}{64}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsubsection}{\numberline {3.4.4}\texttt {eval}}{64}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsubsection}{\numberline {3.4.5}\texttt {scope}}{64}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsubsection}{\numberline {3.4.6}\texttt {type}}{64}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsubsection}{\numberline {3.4.7}\texttt {name}}{65}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsubsection}{\numberline {3.4.8}\texttt {if}}{65}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsubsection}{\numberline {3.4.9}\texttt {unless}}{65}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsubsection}{\numberline {3.4.10}\texttt {list}}{65}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsubsection}{\numberline {3.4.11}\texttt {size}}{65}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsubsection}{\numberline {3.4.12}\texttt {index}}{65}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsubsection}{\numberline {3.4.13}\texttt {iterate}}{66}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsubsection}{\numberline {3.4.14}\texttt {push}}{66}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsubsection}{\numberline {3.4.15}\texttt {unshift}}{66}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsubsection}{\numberline {3.4.16}\texttt {concat}}{66}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsubsection}{\numberline {3.4.17}\texttt {concat!}}{66}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsubsection}{\numberline {3.4.18}\texttt {pop}}{66}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsubsection}{\numberline {3.4.19}\texttt {shift}}{66}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsubsection}{\numberline {3.4.20}\texttt {<>}}{66}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsubsection}{\numberline {3.4.21}\texttt {+}}{67}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsubsection}{\numberline {3.4.22}\texttt {-}}{67}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsubsection}{\numberline {3.4.23}\texttt {*}}{67}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsubsection}{\numberline {3.4.24}\texttt {/}}{67}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsubsection}{\numberline {3.4.25}\texttt {\%}}{67}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsubsection}{\numberline {3.4.26}\texttt {=}}{67}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsubsection}{\numberline {3.4.27}\texttt {/=}}{67}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsubsection}{\numberline {3.4.28}\texttt {!}}{67}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsubsection}{\numberline {3.4.29}\texttt {\&\&}}{68}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsubsection}{\numberline {3.4.30}\texttt {||}}{68}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsubsection}{\numberline {3.4.31}\texttt {\^{}\^{}}}{68}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsubsection}{\numberline {3.4.32}\texttt {<}}{68}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsubsection}{\numberline {3.4.33}\texttt {>}}{68}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsubsection}{\numberline {3.4.34}\texttt {<=}}{68}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsubsection}{\numberline {3.4.35}\texttt {>}}{68}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsubsection}{\numberline {3.4.36}\texttt {string}}{68}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsubsection}{\numberline {3.4.37}\texttt {repr}}{68}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsubsection}{\numberline {3.4.38}\texttt {ast}}{69}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsubsection}{\numberline {3.4.39}\texttt {out}}{69}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsubsection}{\numberline {3.4.40}\texttt {read}}{69}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsubsection}{\numberline {3.4.41}\texttt {puts}}{69}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsubsection}{\numberline {3.4.42}\texttt {let}}{69}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsubsection}{\numberline {3.4.43}\texttt {delete}}{69}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsubsection}{\numberline {3.4.44}\texttt {mutate}}{69}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsubsection}{\numberline {3.4.45}\texttt {λ} \& \texttt {lambda}}{69}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsubsection}{\numberline {3.4.46}\texttt {->}}{70}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsubsection}{\numberline {3.4.47}\texttt {define}}{70}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsection}{\numberline {3.5}Debugging, Configuration \& Verbose Mode}{71}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsection}{\numberline {3.6}Prelude / Standard Library for the Language}{71}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {section}{\numberline {4}Testing of Implementation}{75}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsection}{\numberline {4.1}Testing Discrete Sub-Components}{75}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsubsection}{\numberline {4.1.1}Lexical Analysis}{77}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsubsection}{\numberline {4.1.2}Initial Parse Tree}{79}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsubsection}{\numberline {4.1.3}Macro Expanded Tree}{82}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsubsection}{\numberline {4.1.4}Scoping \& Tables}{85}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsection}{\numberline {4.2}Testing through Sample Code}{87}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsection}{\numberline {4.3}Testing in the REPL}{88}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsubsection}{\numberline {4.3.1}Interpreter Warnings}{88}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsubsection}{\numberline {4.3.2}Syntax Errors}{89}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsubsection}{\numberline {4.3.3}Parse Errors}{91}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsubsection}{\numberline {4.3.4}Execution Errors}{91}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {section}{\numberline {5}Appraisal}{95}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsection}{\numberline {5.1}Comparison against Objectives}{95}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsection}{\numberline {5.2}Future Improvements, Potential \& Ideas}{95}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {subsection}{\numberline {5.3}Users' Usage \& Feedback}{96}% 
+\defcounter {refsection}{0}\relax 
+\contentsline {section}{\numberline {6}References}{97}% 
