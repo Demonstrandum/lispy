@@ -1,12 +1,12 @@
 import lispy
-
+import codecs
 
 # Let's first read the contents of the file
 #   as a string into a variable.
 TESTING_FILE = './testing.lispy'
 
 PROGRAM_STRING = None
-with open(TESTING_FILE, 'r') as file:
+with codecs.open(TESTING_FILE, 'r', 'utf-8') as file:
     PROGRAM_STRING = file.read()  # Read from the file.
 
 

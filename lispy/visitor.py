@@ -15,6 +15,7 @@ except: pass
 
 import sys, os
 import pickle
+import codecs
 
 EX = None
 CURRENT_LOCATION = {'line': 1, 'column': 1, 'filename': '.'}
@@ -135,7 +136,7 @@ def load_file(name):
             + 'immutability errors...').format(abspath))
     LOADED_FILES.append(abspath)
     PROGRAM_STRING = None
-    with open(name, 'r') as file:
+    with codecs.open(name, 'r', 'utf-8') as file:
         PROGRAM_STRING = file.read()
     stream = lexing.lex(PROGRAM_STRING, name)
     AST = parsing.parse(stream)
@@ -1179,6 +1180,8 @@ def visit(AST, pc=0, string=None):
             + 'or you\'re recursing over something too many times.\n\n'
             + 'python      call-stack depth:  {},\n'.format(conf.RECURSION_LIMIT)
             + 'interpreter call-stack depth:  {}.'  .format(len(CALL_STACK)))
+    except EOFError:
+        raise EOFError
     except Exception as e:
         import traceback
         print('\n\n')

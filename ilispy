@@ -21,4 +21,4 @@ try:
     lispy.run('./repl.lispy')
 except EOFError:
     print("\n\nCtrl+D --- EOF")
-    print("Bye-bye.")
+    print("Bye-bye.\n")

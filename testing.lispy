@@ -6,7 +6,6 @@
     (eval body)))
   (delete sym)))
 
-
 (ten-times counter (do
   (puts counter)))
                      ;;       vvv  --- UNDERSCORE

@@ -7,12 +7,13 @@ from . import err
 from . import config as conf
 
 import pickle, sys, os
+import codecs
 
 TEST_FILE = 'testing.lispy'
 
 def run(file):
     PROGRAM_STRING = None
-    with open(file, 'r') as f:
+    with codecs.open(file, 'r', 'utf-8') as f:
         PROGRAM_STRING = f.read()
 
     if conf.DEBUG:
