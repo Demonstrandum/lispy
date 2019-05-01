@@ -1,0 +1,22 @@
+;; `merger` needs its arguments to be already sorted.
+(define (merger l r) (do
+  (if (empty? r) (yield l))
+  (if (empty? l) (yield r))
+
+  (if (< (head l) (head r))
+    (yield (prepend (head l) (merger (tail l) r)))
+    (yield (prepend (head r) (merger l (tail r)))))))
+
+(define (merge-sort l) (do
+  (if (< (size l) 2) (yield l))         ;; If there are no elements to sort,
+  (let (left  (take (// (size l) 2) l)) ;;   then just give the list back.
+       (right (drop (// (size l) 2) l)))
+  (yield (merger (merge-sort left) (merge-sort right)))))
+
+
+;; Example usage:
+(let (unsorted '(8 3 1 7 4 9 1 3 5 2 6))
+     (sorted (merge-sort unsorted)))
+
+(print "Unsorted List: " unsorted "\n")
+(print "  Sorted List: "   sorted "\n")

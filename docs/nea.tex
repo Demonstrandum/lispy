@@ -45,6 +45,7 @@
 \usepackage{lipsum}
 \usepackage{changepage}
 \usepackage{minted}
+\usemintedstyle{tango}
 \newenvironment{snippet}[1][python]
   {\VerbatimEnvironment
    \begin{minted}[mathescape,
@@ -515,7 +516,7 @@
       are also operators in Lisp (i.e. \code{+, -, *, /, \%,} \etc).
       Hence, transitively, all (traditional) operators are functions!
 
-      The fact that all operators are just functions, I see as a hugh advantage
+      The fact that all operators are just functions, I see as a huge advantage
       to the language, because, not only does that allow the programmer to
       extend the meaning of an operator, but it also allows them to create their
       own operators just as easily as defining any function. Another consequence
@@ -862,6 +863,13 @@ atomic (stream) =>
 
       \clearpage
 
+      A flow-chart of the parse and atom procedures might help understand them
+      more intuitively:
+
+      \graph{parser-flow}{Parser outlined as a flow-chart.}
+
+      \clearpage
+
       \subsubsection{Macro Expansion Phase}
       After we've generated the most basic syntax tree, we should start the macro
       expansion phase.  Macros, you may be familiar with from other languages
@@ -1110,8 +1118,8 @@ evaluate (node) =>
 
 
 \section{Technical Solution \& Implementation}
-  \blfootnote{Any absolute file paths presented are relative to the root directory of
-  the repository for the code.}
+  \blfootnote{Any absolute file paths presented are relative to the root
+  directory of the repository for the code.}
   In this section we'll be walking through the code (Python code) that
   implements the entire Lisp language that we've designed. Somewhere around
   the beginning of writing the implementation of the language I realised I would
@@ -1134,6 +1142,15 @@ evaluate (node) =>
   To run the files in said shells, I believe you may open a CMD window in the
   root of the repository and type \code{python execute <filename>} provided that
   Python is in your PATH environment variable.
+
+  If you are unable to configure Python to work from your CMD, there is a third
+  solution to running LISPY files. Any standard CPython installation from the
+  official website will allow you to run any \code{.py} by simply double clicking
+  the file in the Windows File Explorer.  The \code{windows\_execute.py} file
+  provides a simple GUI interface implemented with tkinter which also comes with
+  the standard Windows installation of CPython.  Hopefully this provides a
+  useful interface for Windows users who might not be familiar or comfortable
+  enough with the command line.
 
   \clearpage
 
@@ -1421,6 +1438,8 @@ evaluate (node) =>
       evaluation of the tree.
 
       In the \code{/lispy/tree.py} we will actually be assembling the AST together
+
+      \graph{tree_Hier}{Hierarchy of class inheritance in \code{/lispy/tree.py}.}
 
     \subsubsection{Bottom-up / Shift-reduce Pattern}
       Our parser will be implemented as a bottom-up parser, generating the
@@ -1951,7 +1970,7 @@ evaluate (node) =>
     \subsubsection{\code{<=}}
       Checks if each subsequent argument is less than or equal the last.
 
-    \subsubsection{\code{>}}
+    \subsubsection{\code{>=}}
       Checks if each subsequent argument is greater than or equal the last.
 
     \subsubsection{\code{string}}
@@ -2056,7 +2075,8 @@ evaluate (node) =>
     Right now the recursion limit is very high, which \emph{could} lead
     to some overflows.
 
-    The following constants: \code{DEBUG, EXIT\_ON\_ERROR, RECOVERING\_FROM\_ERROR}
+    The following constants: \code{DEBUG, EXIT\_ON\_ERROR, RECOVERING\_FROM\_ERROR,
+    COLORS}
     change slightly the behaviour / output of the program.
 
     \code{DEBUG} --- Will make the interpreter output information about
@@ -2072,6 +2092,20 @@ evaluate (node) =>
 
     \code{RECOVERING\_FROM\_ERROR} --- Is just a global that keeps
     track of whether or not the program has recovered form an error yet.
+
+    \code{COLORS} --- A Boolean that defaults to \code{True}.
+    Error messages in LISPY are coloured using ANSI escape codes to give
+    coloured output. Almost all major terminal emulators on all major Operating
+    Systems support them, except from Windows.  For this reason, \code{COLORS}
+    will be set to false if the kernel detected is \code{'nt'} (\code{'nt'},
+    of course refering to Windows' ``Windows NT'' kernel), implemented like this:
+    \begin{minted}{python}
+    COLORS = True
+    if os.name == 'nt':  # If we're on the Windows NT kernel,
+        COLORS = False   #   don't use colors. Because Windows is bad.
+    \end{minted}
+
+    \clearpage
 
   \subsection{Prelude / Standard Library for the Language}
     The Prelude is simply a set of files that run before \emph{your} program
@@ -2105,6 +2139,7 @@ evaluate (node) =>
         \begin{itemize}
           \item \code{to\_string}, which converts its argument to a string.
           \item \code{to\_atom}, which converts its argument to an atom.
+          \item \code{to\_bool}, which converts its argument to a Boolean.
           \item \code{type?}, which checks if its first arguments type matches
           the type of the second argument.
           \item \code{nil?}, which checks if its argument is of type NIL.
@@ -2139,6 +2174,9 @@ evaluate (node) =>
           list excluding the first element of the list.
           \item \code{for}, which implements a for loop with the syntax:
                 \code{(for some-symbol in some-list (do execute this body))}.
+          \item \code{take}, which returns the first n elements of a given list.
+          \item \code{drop}, which returns a list missing the first n
+                             elements a given list.
           \item \code{reverse}, which reverses a given list.
           \item \code{fill}, which fills a given array with integers between a
           specified range.
@@ -2161,6 +2199,10 @@ evaluate (node) =>
                 divisible by the second argument.
                 \item \code{sum}, which returns the sum of a list. It is
                 defined as \code{(define (sum l) (apply + l))}.
+                \item \code{floor}, which takes a number and rounds it down.
+                \item \code{ceil},  which takes a number and rounds it up.
+                \item \code{//}, is an integer division. It takes two numbers,
+                  and returns their quotient floored.
               \end{itemize}
       \item \code{IO.lispy} --- Functions relating to input and output, this file implements:
         \begin{itemize}
@@ -2765,12 +2807,12 @@ Visiting (`testing.lispy' branch: 4):
     same interpreter, meaning all the features are compatible with each other
     as well.
 
-    The \code{/samples} directory contains 14 example programs written
+    The \code{/samples} directory contains 15 example programs written
     in LISPY, here they are in alphabetical order:
     \begin{Verbatim}
 atoms.lispy        deep.lispy       functions.lispy  lists.lispy
-blocks.lispy       eval.lispy       ifact.lispy      strings.lispy
-compose.lispy      factorial.lispy  integral.lispy
+blocks.lispy       eval.lispy       ifact.lispy      merge_sort.lispy
+compose.lispy      factorial.lispy  integral.lispy   strings.lispy
 declarative.lispy  fizzbuzz.lispy   internal.lispy
     \end{Verbatim}
 
@@ -2798,6 +2840,9 @@ declarative.lispy  fizzbuzz.lispy   internal.lispy
       which converts one number at a time, and can be passed to a \code{(map ...)}
       function across a range; and another which is more generalised and uses
       an explicit loop.
+      \item \code{merge\_sort.lispy} --- This file implements a merge-sort, it
+      takes eleven randomly ordered integers and sorts them. This sample program
+      makes heavy use of declarative programming.
       \item \code{integeral.lispy} --- Computes an integral of a given function,
       it uses the Riemann summation method for a finite value of $dx$ to solve
       an integral computationally. The integral function itself computes a
@@ -2938,6 +2983,157 @@ declarative.lispy  fizzbuzz.lispy   internal.lispy
     implementation. But, alas, I hadn't enough time nor resources to throw
     myself into building a fully-fledged Lisp interpreter with all the modern
     bells and whistles possible.
+
+
+  \subsection{Comparison against other Languages}
+   %% Write about this being a Lisp-1
+   Perhaps now is a good time to bring up the fact that LISPY is actually what's
+   known as a Lisp-1. This is one of two categories of Lisp, Lisp-1s and Lisp-2s
+
+   %% Write about Lisp-2 vs Lisp-1, namespace, higher order functions
+   %%     CommonLisp v. Scheme
+   A Lisp-1 is simply a Lisp dialect, where variable and functions are stored in
+   the same symbol tables, and a Lisp-2 is a Lisp where functions and variables
+   exists in different namespaces.  The implications of a Lisp-2, is that we can
+   have variables and functions with the same name, while representing different
+   things. CommonLisp is probably the most cumulatively popular Lisp dialect
+   when considering the most historically popularly used Lisp dialects. CommonLisp
+   also happens to be a Lisp-2, along with many other popular Lisps like EmacsLisp.
+   Personally I find having separate namespaces for functions and variables very
+   unintuitive, and in my opinion makes dealing with things such as higher-order
+   functions much more involved and unnatural, as functions can't be treated as
+   variables, and requires special macros to do so.
+
+   Many people had the same
+   issue with these Lisps and hence a breed of new Lisp dialects were born.
+   The Lisp dialect known as Scheme, which was likely the first Lisp to be a
+   Lisp-1, with its much simpler scoping rules, which allowed for much more
+   intuitive use of the language.
+
+   For a more one-on-one syntactic and perhaps more superficial comparison of
+   LISPY with other Lisps, I have written a LISPY script which aims to use
+   an appropriate amount of the language's features, as well as writing it in
+   the most idiomatic and declarative way I can, in proper nature of the language.
+
+   I will be comparing the script with the same program implemented in
+   CommonLisp, the program has been written by someone else and exists in the
+   public domain.
+
+   \clearpage
+
+   I settled on a merge-sort implementation as it uses a decent amount of language
+   features and demonstrates decently what the language can do.
+
+   \subsubsection{LISPY Implementation}
+   \begin{minted}{lisp}
+;; `merger` needs its arguments to be already sorted.
+(define (merger l r) (do
+  (if (empty? r) (yield l))
+  (if (empty? l) (yield r))
+
+  (if (< (head l) (head r))
+    (yield (prepend (head l) (merger (tail l) r)))
+    (yield (prepend (head r) (merger l (tail r)))))))
+
+(define (merge-sort l) (do
+  (if (< (size l) 2) (yield l))         ;; If there are no elements to sort,
+  (let (left  (take (// (size l) 2) l)) ;;   then just give the list back.
+       (right (drop (// (size l) 2) l)))
+  (yield (merger (merge-sort left) (merge-sort right)))))
+
+;; Example usage:
+(let (unsorted '(8 3 1 7 4 9 1 3 5 2 6))
+     (sorted (merge-sort unsorted)))
+
+(print "Unsorted List: " unsorted "\n")
+(print "  Sorted List: "   sorted "\n")
+   \end{minted}
+
+   which produced an output of:
+   \begin{Verbatim}
+Unsorted List: '(8 3 1 7 4 9 1 3 5 2 6)
+  Sorted List: '(1 1 2 3 3 4 5 6 7 8 9)
+   \end{Verbatim}
+
+   \clearpage
+   \subsubsection{CommonLisp Implementation}
+    Now let's have a look at how a merge sort would typically be implemented in
+    CommonLisp:
+    \begin{minted}{lisp}
+;;; THIS FILE IS NOT MY OWN, AND EXITS IN THE PUBLIC DOMAIN.
+;;; THIS FILE MEANT PURELY FOR OBSERVATIONAL AND COMPARATIVE PURPOSE.
+
+(defun SPLIT-LIST (L)
+  (if (endp L)
+      '(nil nil)
+    (let ((X (SPLIT-LIST (CDR L))))
+      (list  (cons (CAR L)(CADR X)) (CAR X) ))))
+
+(defun MERGE-LISTS (L1 L2)
+  (cond
+   ((and(endp L1 )(endp L2)) nil )
+   ((endp L1) (cons (CAR L2) (MERGE-LISTS nil (CDR L2))))
+   ((endp L2) (cons (CAR L1) (MERGE-LISTS (CDR L1) nil)))
+   ((< (CAR L1) (CAR L2)) (cons (CAR L1) (MERGE-LISTS (CDR L1) L2  )))
+   ((>= (CAR L1) (CAR L2)) (cons (CAR L2) (MERGE-LISTS L1 (CDR L2))  ))))
+
+(defun MSORT (L)
+  (cond ((endp L) nil)
+        ((endp (CDR L)) L)
+        (t
+         (let* ((S (SPLIT-LIST L ))
+                (L1 (CAR S))
+                (L2 (CADR S))
+                (X (MSORT L1))
+                (Y (MSORT L2)))
+           (MERGE-LISTS X Y)))))
+
+;; Minor addition to the program, such that it accomplishes
+;;  the same thing as the LISPY implementation.
+(let* ((UNSORTED '(8 3 1 7 4 9 1 3 5 2 6))
+       (SORTED (MSORT UNSORTED)))
+  (format t "Unsorted List: '(~{~a~^ ~})~%" UNSORTED)
+  (format t "  Sorted List: '(~{~a~^ ~})~%" SORTED))
+    \end{minted}
+    which, reassuringly, produces the exact same output:
+    \begin{Verbatim}
+ Unsorted List: '(8 3 1 7 4 9 1 3 5 2 6)
+   Sorted List: '(1 1 2 3 3 4 5 6 7 8 9)
+    \end{Verbatim}
+
+    \clearpage
+
+    The two programs implement the same algorithm, however they use different
+    constructs and methods, as the implementations are limited by what the
+    standard library provides. You may notice that where LISPY uses \code{drop}
+    and \code{take} functions, making good use of the many declarative functions
+    provided by the Prelude. While CommonLisp makes notorious use of \code{CONS},
+    \code{CAR}, and \code{CDR}, while implementing its own split function. as well.
+    CommonLisp makes clever use of its seemingly simplistic operations to dissect
+    and perform useful list processing, in true nature of a Lisp.
+
+    There are disadvantages to this sort of comparison between languages, but
+    what it certainly helps highlight, is the difference in syntax, predefined
+    operations and readability of the language. The CommonLisp implementation is
+    true to how most CommonLisp programs are written, and LISPY uses exactly
+    what methods it needs, and makes the most use of the Prelude. This hopefully
+    makes it a fair comparison.
+
+    You may notice how the CommonLisp implementation had lots of uppercase mixed
+    with lowercase variables and methods mixed in with each other, while LISPY
+    is consistent with its case. This is because CommonLisp is case insensitive,
+    while LISPY is. The CommonLisp standard library naming convention requires
+    some memorisation, and function names are not immediately obvious what they
+    mean. This is opposed to LISPY, where most function or macro names are more
+    human oriented, with full meaningful English words representing them.
+    LISPY also provides many declarative functions, for very general use, many
+    of which were inspired by the Haskell Prelude.
+
+    The two implementations of merge-sort can never be written the exact same
+    way, as the two different languages provide and work in fundamentally
+    different ways, providing the different implementations.
+
+    \clearpage
 
   \subsection{Users' Usage \& Feedback}
     TODO.

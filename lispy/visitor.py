@@ -9,6 +9,7 @@ from functools import reduce
 from copy import copy as clone
 from copy import deepcopy as recursive_clone
 from types import FunctionType as function
+import numbers
 
 try:    import readline
 except: pass
@@ -448,7 +449,7 @@ def _name_macro(node):
 
 def _if_macro(node):
     check = evaluate(node.operands[0])
-    if check is ATOMS[':true'] and check:
+    if check is not ATOMS[':false'] and check:
         return evaluate(node.operands[1])
     else:
         if len(node.operands) > 2:
@@ -503,10 +504,11 @@ def _index_macro(node):
 
     # We must be absolutely certian we have the correct type of
     #   arguments supplied to the index macro.
-    if type(index) != int:
+    if not isinstance(index, numbers.Real):
         return EX.throw(node.operands[0].location,
-            'Oridnal index number must be an integer!\n'
+            'Ordinal index number must be an integer!\n'
             + 'Was given index of type `{}\'...'.format(to_type(index)))
+    index = int(index)
     check_list(data, node)
     # We are certain we have the correct datatypes supplied...
     dlist = data

@@ -14,5 +14,5 @@ EXIT_ON_ERROR = True
 RECOVERING_FROM_ERROR = False
 
 COLORS = True
-if os.name == 'nt':  # If we're on the Windows NT kernel:
-    COLORS = False   #   Don't use colors. Because Windows is bad.
+if os.name == 'nt':  # If we're on the Windows NT kernel,
+    COLORS = False   #   don't use colors. Because Windows is bad.
