@@ -19,7 +19,7 @@ NIL        = exp(r"\Anil")               # 'nil'
 SYMBOL     = exp(r"\A" + IDENT_STR)      # 'hello-world'
 UNEVAL     = exp(r"\A\'")                # '
 ATOM       = exp(r"\A\:+[0-9" + IDENT_STR[1:])  # ':good-bye'
-NUMERIC    = exp(r"\A[0-9]+(\.[0-9]+)?([xob][0-9]+)?(e[\+\-]?)?[0-9a-fA-f]*")
+NUMERIC    = exp(r"\A[0-9]+(\.[0-9]+)?([xob][0-9a-fA-F]+)?(e[\+\-]?)?[0-9a-fA-F]*")
 TERMINATOR = exp(r"\A\n")
 STRING     = exp(r"\A([\"'])((\\{2})*|(.*?[^\\](\\{2})*))\1")
 # `Token` object is a chunk of the code we're interpreting;
