@@ -23,7 +23,7 @@
     (mutate (sym (index __i __array)))
     (eval body)
     (+1 __i)))
-  (delete __i __array __sym)
+  (delete __i __array sym)
   (eval l)))
 
 (define (take n l) (do  ;; Takes the first n elements of list l.

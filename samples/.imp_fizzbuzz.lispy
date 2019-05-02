@@ -1,0 +1,9 @@
+(for n in (range 1 100) (do
+	(let (s ""))
+	(if (divisible? n 3)
+		(concat! s "Fizz"))
+	(if (divisible? n 5)
+		(concat! s "Buzz"))
+	(if (empty? s)
+		(mutate (s n)))
+	(puts s)))

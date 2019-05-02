@@ -489,6 +489,8 @@ def _size_macro(node):
     dlist = evaluate(node.operands[0])
     check_list(dlist, node)
 
+    if type(dlist) is str:
+        return len(dlist)
     if dlist.value.value is None:
         return 0
     return 1 + len(dlist.value.operands)
